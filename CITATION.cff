@@ -1,0 +1,25 @@
+cff-version: 1.2.0
+message: "If you use play-along in your work, please cite it as below."
+type: software
+title: "play-along: turn any song into a falling-notes play-along video and practice player"
+authors:
+  - given-names: "Yogesh"
+    family-names: "Kumar"
+    alias: "yogesh-iitj"
+    website: "https://github.com/yogesh-iitj"
+version: 0.1.0
+date-released: 2026-11-24
+license: Apache-2.0
+repository-code: "https://github.com/working-codes-demo/play-along"
+url: "https://working-codes-demo.github.io/play-along/"
+abstract: >-
+  Turns any recording or YouTube link into per-instrument notes, a falling-notes
+  play-along video with every instrument in its own colour, a multi-track MIDI file
+  and a browser practice player with solo, mute, synth playback, slow-down and A-B loops.
+  Runs on a laptop CPU or Apple Silicon.
+keywords:
+  - music transcription
+  - audio to MIDI
+  - music education
+  - piano
+  - visualization

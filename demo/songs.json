@@ -1,0 +1,34 @@
+[
+ {
+  "slug": "monkeys",
+  "result": "results/monkeys_spinning_monkeys",
+  "blurb": "Strings, flute and double bass. Mute the strings and follow the bass.",
+  "credit": "\"Monkeys Spinning Monkeys\" by Kevin MacLeod (incompetech.com)",
+  "url": "https://incompetech.com",
+  "license": "CC BY 4.0"
+ },
+ {
+  "slug": "duck",
+  "result": "results/fluffing_a_duck",
+  "blurb": "Five parts plus drums. Solo the clarinet and hear it on its own.",
+  "credit": "\"Fluffing a Duck\" by Kevin MacLeod (incompetech.com)",
+  "url": "https://incompetech.com",
+  "license": "CC BY 4.0"
+ },
+ {
+  "slug": "chopin",
+  "result": "results/chopin_nocturne_op9_no2",
+  "blurb": "Solo piano, split into right and left hand. Learn the left hand at 0.5×.",
+  "credit": "Frédéric Chopin, Nocturne Op. 9 No. 2, recording from Wikimedia Commons",
+  "url": "https://commons.wikimedia.org/wiki/File:Nocturne_in_E_flat_major,_Op._9_no._2.mp3",
+  "license": "Public domain"
+ },
+ {
+  "slug": "sneaky-snitch",
+  "result": "results/sneaky_snitch",
+  "blurb": "Strings, double bass, electric piano and drums.",
+  "credit": "\"Sneaky Snitch\" by Kevin MacLeod (incompetech.com)",
+  "url": "https://incompetech.com",
+  "license": "CC BY 4.0"
+ }
+]

@@ -1,0 +1,406 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>play-along</title>
+<style>
+  :root { --bg:#0d0f1c; --panel:#161327; --line:#2a2540; --text:#ecebf3; --dim:#9a97ad; --amber:#ffd166; }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--text); font:14px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif; }
+  header { display:flex; align-items:center; gap:14px; padding:12px 18px; border-bottom:1px solid var(--line); flex-wrap:wrap; }
+  header h1 { font-size:18px; margin:0; font-weight:700; }
+  header h1 b { color:var(--amber); }
+  header .song { color:var(--dim); font-size:14px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; flex:1; min-width:120px; }
+  a { color:var(--amber); }
+  .gh { margin-left:auto; text-decoration:none; background:var(--amber); color:#1b1530; font-weight:700; padding:6px 12px; border-radius:999px; font-size:13px; white-space:nowrap; }
+  main { max-width:1280px; margin:0 auto; padding:14px 16px 28px; }
+  .stage { position:relative; width:100%; aspect-ratio:16/9; background:#000; border-radius:12px; overflow:hidden; box-shadow:0 10px 40px #0008; }
+  canvas { position:absolute; inset:0; width:100%; height:100%; display:block; cursor:pointer; }
+  .bigplay { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; pointer-events:none; }
+  .bigplay span { width:84px; height:84px; border-radius:50%; background:#ffd166e6; display:flex; align-items:center; justify-content:center; box-shadow:0 6px 30px #0009; }
+  .bigplay span::after { content:""; border-left:30px solid #1b1530; border-top:18px solid transparent; border-bottom:18px solid transparent; margin-left:8px; }
+  .hidden { display:none !important; }
+  .bar { display:flex; align-items:center; gap:10px; margin-top:12px; flex-wrap:wrap; }
+  button, select { background:var(--panel); color:var(--text); border:1px solid var(--line); border-radius:8px; padding:7px 12px; font:inherit; cursor:pointer; }
+  button:hover { border-color:#4a4370; }
+  button.on { background:var(--amber); color:#1b1530; border-color:var(--amber); font-weight:700; }
+  #play { min-width:76px; font-weight:700; }
+  .time { font-variant-numeric:tabular-nums; color:var(--dim); min-width:92px; }
+  .seek { flex:1; min-width:160px; height:28px; position:relative; cursor:pointer; }
+  .seek .track { position:absolute; left:0; right:0; top:12px; height:4px; background:var(--line); border-radius:2px; }
+  .seek .fill { position:absolute; left:0; top:12px; height:4px; background:var(--amber); border-radius:2px; }
+  .seek .loop { position:absolute; top:6px; height:16px; background:#ffd16633; border-left:2px solid var(--amber); border-right:2px solid var(--amber); }
+  .group { display:flex; gap:4px; align-items:center; }
+  .label { color:var(--dim); font-size:12px; text-transform:uppercase; letter-spacing:.06em; margin-right:4px; }
+  .chips { display:flex; flex-wrap:wrap; gap:8px; margin-top:14px; }
+  .chip { display:flex; align-items:center; gap:8px; padding:6px 6px 6px 10px; border-radius:999px; background:var(--panel); border:1px solid var(--line); user-select:none; }
+  .chip .dot { width:12px; height:12px; border-radius:3px; }
+  .chip .name { cursor:pointer; }
+  .chip .n { color:var(--dim); font-size:12px; }
+  .chip.off { opacity:.45; }
+  .chip.off .name { text-decoration:line-through; }
+  .chip .solo { padding:2px 8px; font-size:12px; border-radius:999px; }
+  .hint { color:var(--dim); font-size:13px; margin-top:12px; }
+  kbd { background:var(--panel); border:1px solid var(--line); border-bottom-width:2px; border-radius:4px; padding:0 5px; font-size:12px; }
+  footer { color:var(--dim); font-size:12.5px; margin-top:22px; border-top:1px solid var(--line); padding-top:12px; }
+  @media (max-width:700px){ header .song{display:none} .time{min-width:0} }
+</style>
+</head>
+<body>
+<header>
+  <h1><b>▶</b> play-along</h1>
+  <div class="song" id="songTitle"></div>
+  <a class="gh" href="https://github.com/working-codes-demo/play-along" target="_blank" rel="noopener">Code on GitHub</a>
+</header>
+<main>
+  <div class="stage" id="stage">
+    <canvas id="cv"></canvas>
+    <div class="bigplay" id="bigplay"><span></span></div>
+  </div>
+  <audio id="audio" preload="auto"></audio>
+
+  <div class="bar">
+    <button id="play">Play</button>
+    <span class="time" id="time">0:00 / 0:00</span>
+    <div class="seek" id="seek"><div class="track"></div><div class="loop hidden" id="loopband"></div><div class="fill" id="fill"></div></div>
+  </div>
+
+  <div class="bar">
+    <div class="group"><span class="label">Hear</span>
+      <button data-hear="orig" class="on">Recording</button>
+      <button data-hear="synth">Synth</button>
+      <button data-hear="mix">Both</button>
+    </div>
+    <div class="group"><span class="label">Speed</span>
+      <button data-speed="0.5">0.5×</button><button data-speed="0.75">0.75×</button><button data-speed="1" class="on">1×</button>
+    </div>
+    <div class="group"><span class="label">Loop</span>
+      <button id="setA">A</button><button id="setB">B</button><button id="clearLoop">Off</button>
+    </div>
+    <div class="group" id="downloads"></div>
+  </div>
+
+  <div class="chips" id="chips"></div>
+  <div class="hint">Click an instrument to hide it, <b>Solo</b> to keep only it. <b>Synth</b> plays just the instruments you kept, so you can hear one part on its own.
+    Keys: <kbd>Space</kbd> play, <kbd>←</kbd><kbd>→</kbd> 5 s, <kbd>1</kbd>–<kbd>9</kbd> instruments, <kbd>[</kbd><kbd>]</kbd> speed.</div>
+
+  <footer>
+    Notes transcribed from the recording by <a href="https://github.com/kobimusic/dettato" target="_blank" rel="noopener">dettato</a> (KobiMusic, Apache-2.0).
+    <a href="https://github.com/working-codes-demo/play-along" target="_blank" rel="noopener">play-along</a> by Yogesh Kumar.
+    <span id="credit"></span>
+  </footer>
+</main>
+
+<script>
+const DATA = {"title":"Fluffing a Duck","duration":67.368,"meta":{"dettato":{"notes":{"transcribed":435,"dropped":1,"inserted":0,"grouped":382},"tuning_cents":-1.65,"drums":{"hits":299,"router":0.8092002471288046,"model":"orchestral"}},"transcribe_s":24.4,"device":"mps","source":"Fluffing_a_Duck.mp3","start":0.0,"end":null},"range":[36,93],"tracks":[{"name":"Electric piano","program":4,"is_drum":false,"color":"#4cc9f0","notes":[[0.026,0.138,43,112],[0.499,0.611,50,101],[0.51,0.624,55,110],[0.771,1.015,50,77],[1.016,1.114,49,106],[1.248,1.357,50,92],[1.249,1.362,57,105],[1.741,1.97,42,114],[1.986,2.106,43,108],[2.002,2.109,59,108],[2.239,2.374,59,116],[2.479,2.586,57,115],[2.725,2.829,55,103],[2.736,2.966,50,103],[2.978,3.059,49,115],[2.98,3.056,52,112],[3.226,3.337,50,91],[3.475,3.934,52,105],[3.966,4.08,43,106],[4.441,4.526,55,99],[4.442,4.514,50,100],[4.704,4.942,50,115],[4.953,5.054,49,110],[5.189,5.26,57,111],[5.197,5.27,50,97],[5.677,5.919,42,119],[5.926,6.04,43,109],[5.937,6.024,50,96],[5.946,6.024,59,104],[6.656,6.741,59,106],[6.659,6.742,50,107],[7.897,8.012,43,99],[8.394,8.48,55,106],[8.395,8.509,50,99],[8.635,8.871,50,107],[8.885,9.002,49,115],[9.128,9.211,57,106],[9.132,9.224,62,89],[9.133,9.255,50,58],[9.613,9.859,42,111],[9.853,9.939,59,109],[9.864,9.979,43,104],[10.113,10.216,59,106],[10.355,10.449,57,110],[10.583,10.664,55,92],[10.607,10.839,50,113],[10.833,10.914,52,101],[10.849,10.922,49,109],[11.086,11.166,50,97],[11.341,11.818,52,116],[11.831,11.95,43,99],[12.332,12.449,50,105],[12.333,12.419,55,107],[12.57,12.802,50,104],[12.819,12.914,49,111],[13.052,13.14,57,110],[13.057,13.139,50,100],[13.54,13.784,42,106],[13.784,13.87,50,97],[13.785,13.872,59,100],[13.789,13.904,43,104],[14.535,14.759,59,109],[14.536,14.639,50,103],[15.766,15.883,45,114],[16.24,16.326,52,96],[16.241,16.35,57,94],[16.512,16.748,52,112],[16.766,16.876,51,102],[16.978,17.081,52,72],[16.98,17.087,59,92],[17.736,18.013,61,107],[17.739,17.855,45,104],[17.74,17.858,52,103],[17.749,18.092,57,95],[18.215,18.339,59,109],[18.467,18.67,57,106],[18.715,18.832,54,113],[18.94,19.16,52,93],[19.697,19.821,45,111],[20.169,20.256,52,99],[20.178,20.281,57,98],[20.443,20.686,52,114],[20.703,20.809,51,102],[20.936,21.055,52,75],[20.94,21.054,59,108],[21.416,21.644,44,117],[21.659,21.782,45,108],[21.665,21.797,61,105],[21.674,22.641,52,95],[23.123,23.232,64,90],[23.635,23.762,45,116],[24.104,24.221,52,89],[24.11,24.222,57,99],[24.373,24.612,52,109],[24.623,24.725,51,115],[24.863,24.979,52,100],[24.865,24.986,59,115],[25.346,25.585,44,111],[25.592,25.72,61,107],[25.6,25.737,45,103],[25.85,25.967,61,116],[26.095,26.205,59,107],[26.316,26.432,57,90],[26.342,26.584,52,114],[26.585,26.678,51,109],[26.822,26.902,52,107],[27.075,27.522,54,114],[27.3,27.419,57,83],[27.554,27.674,61,112],[27.566,27.687,45,118],[27.812,27.937,61,108],[28.065,28.197,59,108],[28.277,28.39,57,87],[28.312,28.543,52,112],[28.555,28.671,54,53],[28.563,28.684,51,100],[28.803,28.951,50,79],[29.044,29.167,57,108],[29.046,29.183,45,66],[29.056,29.177,52,74],[29.059,29.177,51,91],[29.533,29.674,45,101],[31.98,32.113,50,66],[31.99,32.116,55,101],[32.72,32.853,57,100],[32.725,32.853,50,97],[33.455,33.577,59,111],[33.708,33.837,59,95],[33.954,34.165,57,117],[34.2,34.422,55,117],[34.445,34.534,52,101],[34.692,34.815,50,114],[35.916,36.022,55,112],[35.917,36.028,50,108],[36.657,36.778,57,112],[36.661,36.771,50,110],[37.421,37.55,50,108],[37.426,37.547,59,106],[38.15,38.28,50,115],[38.154,38.292,59,117],[39.853,39.957,50,116],[39.858,39.98,55,115],[40.607,40.686,57,117],[40.607,40.682,50,114],[41.352,41.466,59,114],[41.589,41.695,59,118],[41.817,41.923,57,110],[42.061,42.159,55,103],[42.312,42.402,52,115],[43.806,43.883,55,114],[44.541,44.618,50,105],[44.542,44.623,57,111],[45.264,45.34,50,107],[45.269,45.346,59,108],[45.999,46.064,59,97],[47.73,47.808,52,103],[47.731,47.81,57,104],[48.456,48.537,52,104],[48.458,48.572,59,108],[49.198,49.344,61,108],[49.198,49.351,52,112],[49.208,49.441,57,54],[49.702,49.835,59,115],[49.944,50.089,57,115],[50.181,50.311,54,109],[50.42,50.548,52,97],[51.67,51.791,57,102],[52.394,52.478,52,110],[52.4,52.53,59,114],[53.147,53.289,52,114],[53.151,53.302,61,114],[54.607,54.714,64,113],[55.591,55.715,52,113],[55.595,55.719,57,113],[56.322,56.436,52,103],[56.33,56.441,59,112],[57.075,57.209,61,111],[57.556,57.668,59,105],[57.8,57.899,57,103],[58.047,58.133,54,113],[58.782,58.89,57,103],[59.041,59.165,61,118],[59.287,59.437,61,113],[59.523,59.626,59,93],[59.764,59.885,57,101],[60.03,60.129,54,83],[60.266,60.387,52,48],[60.512,60.632,52,103],[60.525,60.649,57,96]]},{"name":"Clarinet","program":71,"is_drum":false,"color":"#ff5d8f","notes":[[29.054,29.184,76,106],[31.499,31.643,43,106],[32.242,32.475,50,53],[32.488,32.603,49,115],[33.222,33.469,42,118],[33.453,33.59,43,107],[34.206,34.439,50,108],[34.449,34.541,49,105],[34.952,35.437,52,110],[35.196,35.352,71,110],[35.432,35.575,43,109],[35.694,35.935,71,117],[35.921,36.044,69,112],[36.174,36.316,67,111],[36.185,36.426,50,107],[36.416,36.527,49,115],[36.433,36.547,64,116],[36.665,36.807,62,112],[36.916,37.056,64,108],[37.155,37.402,42,118],[37.162,37.327,71,117],[37.401,37.547,43,118],[37.66,37.899,71,107],[37.897,38.119,69,110],[38.154,38.274,64,116],[38.394,38.537,67,106],[38.885,39.081,67,119],[39.379,39.529,43,87],[40.118,40.349,50,104],[40.352,40.501,49,107],[41.09,41.335,42,106],[41.346,41.485,43,100],[42.08,42.321,50,112],[42.311,42.403,49,115],[42.562,42.639,50,111],[42.813,43.296,52,109],[43.067,43.219,71,117],[43.306,43.443,43,87],[43.563,43.761,71,110],[43.801,43.868,50,114],[43.804,43.918,69,116],[44.046,44.294,50,111],[44.048,44.169,67,117],[44.285,44.424,49,113],[44.299,44.419,64,110],[44.536,44.632,62,113],[44.785,44.89,64,119],[45.026,45.271,42,116],[45.032,45.201,71,111],[45.27,45.421,43,91],[45.524,45.675,71,116],[45.772,45.924,69,113],[45.998,46.071,50,106],[46.016,46.163,64,106],[46.262,46.375,67,115],[46.505,46.581,67,117],[46.751,46.912,67,113],[47.243,47.369,45,86],[47.992,48.225,52,109],[48.218,48.351,51,112],[49.206,49.343,45,111],[51.174,51.314,45,110],[51.182,51.335,73,109],[51.433,51.586,73,110],[51.669,51.763,52,105],[51.675,51.832,71,105],[51.912,52.145,52,106],[51.915,52.051,69,110],[52.151,52.275,51,115],[52.16,52.282,66,117],[52.399,52.516,64,116],[52.649,52.763,66,107],[52.896,53.141,44,117],[52.898,53.052,73,115],[53.143,53.29,45,116],[53.399,53.548,73,108],[53.648,53.863,71,114],[53.89,54.024,66,115],[54.137,54.282,69,105],[54.619,54.795,69,118],[55.111,55.242,45,105],[55.846,56.076,52,109],[56.085,56.195,51,104],[56.828,57.071,44,111],[57.079,57.224,45,106],[57.323,57.442,61,120],[57.819,58.058,52,107],[58.05,58.141,51,113],[58.293,58.388,52,115],[58.31,58.412,64,117],[58.537,58.987,54,105],[58.545,58.636,66,106],[58.799,58.912,69,111],[59.05,59.183,45,93],[59.057,59.185,73,110],[59.305,59.458,73,107],[59.545,59.697,71,111],[59.786,59.919,69,111],[59.793,60.028,52,108],[60.037,60.134,66,109],[60.051,60.208,51,96],[60.278,60.419,64,110],[60.278,60.45,50,74],[60.528,60.656,76,115],[60.536,60.926,51,81],[61.016,61.162,45,93],[61.026,61.163,73,103]]},{"name":"Flute","program":73,"is_drum":false,"color":"#ffd166","notes":[[3.729,3.883,71,114],[4.22,4.458,71,105],[4.446,4.564,69,107],[4.709,4.84,67,116],[4.952,5.07,64,111],[5.198,5.32,62,106],[5.444,5.579,64,118],[5.698,5.854,71,109],[6.186,6.424,71,114],[6.422,6.643,69,116],[6.671,6.793,64,112],[6.912,7.055,67,107],[7.411,7.605,67,114],[11.595,11.744,71,106],[12.093,12.285,71,113],[12.332,12.436,69,111],[12.57,12.681,67,105],[12.808,12.909,64,111],[13.055,13.149,62,111],[13.305,13.408,64,115],[13.567,13.727,71,111],[14.051,14.201,71,113],[14.292,14.443,69,109],[14.545,14.688,64,110],[14.788,14.898,67,113],[15.026,15.106,67,112],[15.272,15.431,67,108],[19.718,19.859,73,103],[19.956,20.117,73,103],[20.193,20.353,71,110],[20.444,20.572,69,113],[20.687,20.809,66,110],[20.931,21.048,64,103],[21.176,21.293,66,117],[21.434,21.582,73,108],[21.916,22.073,73,112],[22.174,22.386,71,114],[22.408,22.534,66,107],[22.661,22.809,69,111],[23.151,23.324,69,115],[26.828,26.916,64,109],[27.074,27.177,66,111],[27.318,27.432,69,111],[27.578,27.713,73,109],[27.826,27.983,73,114],[28.068,28.219,71,113],[28.312,28.445,69,110],[28.556,28.663,66,104],[28.796,28.932,64,112],[29.55,29.686,73,104]]},{"name":"Synth strings","program":50,"is_drum":false,"color":"#06d6a0","notes":[[0.03,0.878,50,53],[1.009,1.95,38,102],[1.997,2.059,50,70],[2.972,3.885,38,112],[4.947,5.857,38,107],[8.875,9.012,38,103],[10.837,10.974,38,102],[12.799,13.028,38,98],[16.752,17.586,40,107],[19.162,20.929,81,93],[19.197,19.325,40,110],[19.203,20.138,93,68],[20.686,21.551,40,114],[22.653,23.529,40,110],[24.622,25.491,40,115],[26.577,27.546,40,107],[28.538,29.474,40,105],[29.042,29.163,40,61],[32.474,33.43,38,111],[33.466,33.587,50,70],[34.452,35.402,38,106],[36.419,37.331,38,115],[40.359,40.499,38,108],[42.324,42.465,38,117],[44.284,44.423,38,115],[48.21,48.333,40,98],[50.64,52.447,81,96],[50.673,52.879,93,69],[50.69,50.829,40,100],[52.147,52.287,40,94],[54.128,54.655,40,107],[56.092,56.984,40,108],[58.06,58.972,40,116],[60.03,60.835,40,100],[60.031,60.839,45,52],[60.502,60.915,40,74]]},{"name":"Drums","program":0,"is_drum":true,"color":"#e8e8f0","notes":[[0.52,0.62,38,90],[0.52,0.62,42,82],[1.26,1.36,36,89],[1.26,1.36,64,86],[1.5,1.6,36,92],[1.5,1.6,42,80],[2.48,2.58,38,98],[2.48,2.58,42,88],[2.48,2.58,64,88],[3.22,3.32,36,87],[3.22,3.32,42,70],[3.22,3.32,64,80],[3.46,3.56,42,79],[3.48,3.58,38,94],[3.48,3.58,64,82],[3.48,3.58,69,74],[3.72,3.82,64,82],[3.96,4.06,36,88],[4.44,4.54,64,89],[4.46,4.56,38,101],[4.46,4.56,40,96],[4.46,4.56,42,89],[5.2,5.3,36,92],[5.2,5.3,42,77],[5.44,5.54,38,87],[5.44,5.54,42,78],[5.44,5.54,44,72],[5.44,5.54,64,81],[5.44,5.54,69,70],[5.68,5.78,64,78],[6.18,6.28,38,92],[6.18,6.28,42,86],[6.18,6.28,54,84],[6.9,7.0,36,80],[6.9,7.0,64,77],[6.92,7.02,42,74],[7.4,7.5,38,104],[7.4,7.5,42,89],[7.9,8.0,36,88],[8.38,8.48,38,93],[8.38,8.48,42,85],[8.38,8.48,64,86],[9.12,9.22,36,86],[9.14,9.24,64,88],[9.36,9.46,36,86],[9.36,9.46,42,78],[9.36,9.46,64,81],[10.36,10.46,38,98],[10.36,10.46,42,89],[10.36,10.46,45,93],[10.36,10.46,64,87],[10.82,10.92,36,89],[11.1,11.2,64,84],[11.34,11.44,38,103],[11.34,11.44,42,91],[11.34,11.44,64,90],[11.82,11.92,36,98],[12.08,12.18,42,63],[12.32,12.42,38,90],[12.34,12.44,69,78],[13.06,13.16,64,84],[13.3,13.4,42,87],[13.3,13.4,64,80],[14.04,14.14,36,78],[14.04,14.14,42,67],[14.04,14.14,64,77],[14.28,14.38,38,93],[14.3,14.4,69,76],[14.54,14.64,64,86],[14.78,14.88,36,101],[15.02,15.12,42,51],[15.02,15.12,64,65],[15.02,15.12,69,44],[15.28,15.38,38,101],[15.52,15.62,64,67],[15.52,15.62,69,49],[15.76,15.86,36,91],[16.26,16.36,38,91],[16.26,16.36,42,86],[16.26,16.36,64,90],[16.5,16.6,36,88],[17.24,17.34,36,94],[17.24,17.34,41,87],[17.24,17.34,42,80],[19.7,19.8,45,70],[19.94,20.04,42,66],[19.94,20.04,45,79],[19.94,20.04,64,79],[20.18,20.28,36,89],[20.2,20.3,38,96],[20.2,20.3,42,85],[20.68,20.78,36,86],[20.92,21.02,36,85],[20.92,21.02,42,74],[20.92,21.02,64,79],[21.18,21.28,38,95],[21.18,21.28,62,97],[21.18,21.28,69,74],[21.42,21.52,48,81],[21.42,21.52,64,82],[21.66,21.76,36,88],[21.9,22.0,45,80],[21.92,22.02,42,73],[22.16,22.26,38,89],[22.16,22.26,42,75],[22.16,22.26,64,85],[22.16,22.26,69,73],[22.4,22.5,36,87],[22.4,22.5,42,60],[22.9,23.0,42,65],[23.14,23.24,38,107],[23.14,23.24,42,86],[23.14,23.24,62,101],[23.16,23.26,69,77],[23.38,23.48,42,45],[23.38,23.48,64,65],[23.64,23.74,36,86],[23.64,23.74,42,68],[24.12,24.22,38,96],[24.12,24.22,42,90],[24.12,24.22,64,89],[24.86,24.96,38,100],[24.86,24.96,42,90],[24.86,24.96,44,86],[25.1,25.2,36,82],[25.36,25.46,42,71],[25.36,25.46,64,80],[25.58,25.68,45,66],[26.08,26.18,36,89],[26.08,26.18,42,78],[26.82,26.92,36,98],[26.82,26.92,42,85],[27.32,27.42,38,84],[27.32,27.42,42,75],[27.32,27.42,64,83],[27.56,27.66,36,92],[28.06,28.16,38,88],[28.06,28.16,64,86],[28.54,28.64,45,84],[28.8,28.9,45,79],[28.8,28.9,64,80],[29.04,29.14,36,89],[29.28,29.38,42,73],[29.52,29.62,45,83],[31.5,31.6,36,91],[32.0,32.1,38,90],[32.0,32.1,42,84],[32.0,32.1,64,83],[32.46,32.56,36,87],[32.74,32.84,64,90],[32.98,33.08,36,85],[32.98,33.08,42,82],[33.22,33.32,36,90],[33.46,33.56,36,97],[33.96,34.06,38,97],[33.96,34.06,42,88],[33.96,34.06,64,87],[34.7,34.8,38,91],[34.7,34.8,42,75],[34.7,34.8,64,84],[34.94,35.04,38,89],[34.96,35.06,64,82],[34.96,35.06,69,67],[35.2,35.3,64,84],[35.92,36.02,38,102],[35.92,36.02,42,92],[35.92,36.02,64,91],[36.42,36.52,36,93],[36.66,36.76,42,74],[36.66,36.76,60,88],[36.66,36.76,62,98],[36.9,37.0,42,79],[36.92,37.02,64,77],[36.92,37.02,69,70],[37.4,37.5,36,95],[37.64,37.74,42,89],[37.66,37.76,38,92],[37.9,38.0,42,64],[38.38,38.48,36,82],[38.38,38.48,42,77],[38.38,38.48,64,82],[38.88,38.98,38,104],[38.88,38.98,40,95],[38.88,38.98,42,90],[39.38,39.48,36,89],[39.86,39.96,38,94],[39.86,39.96,42,86],[39.86,39.96,64,87],[40.6,40.7,36,87],[40.6,40.7,62,96],[40.84,40.94,36,89],[40.84,40.94,42,79],[41.58,41.68,36,79],[41.82,41.92,38,96],[41.82,41.92,42,85],[41.82,41.92,44,77],[41.82,41.92,64,87],[42.32,42.42,36,86],[42.56,42.66,45,83],[42.82,42.92,36,101],[42.82,42.92,37,98],[42.82,42.92,38,106],[42.82,42.92,42,94],[43.3,43.4,36,96],[43.54,43.64,42,65],[43.8,43.9,38,89],[43.82,43.92,42,79],[43.82,43.92,69,80],[44.04,44.14,36,92],[44.78,44.88,38,89],[44.78,44.88,42,87],[45.26,45.36,36,91],[45.52,45.62,36,80],[45.52,45.62,42,73],[45.76,45.86,38,90],[45.76,45.86,42,71],[45.78,45.88,69,74],[46.26,46.36,36,98],[46.5,46.6,42,56],[46.74,46.84,38,103],[46.76,46.86,42,76],[47.0,47.1,42,63],[47.0,47.1,64,70],[47.24,47.34,36,95],[47.72,47.82,38,88],[47.72,47.82,42,83],[47.72,47.82,64,85],[47.98,48.08,36,91],[48.48,48.58,64,89],[48.72,48.82,36,91],[48.72,48.82,42,80],[51.42,51.52,42,62],[51.42,51.52,64,79],[51.66,51.76,36,90],[51.66,51.76,42,85],[51.66,51.76,69,81],[52.4,52.5,36,79],[52.4,52.5,42,66],[52.64,52.74,38,103],[52.64,52.74,42,87],[52.64,52.74,69,79],[52.66,52.76,37,100],[52.9,53.0,42,63],[52.9,53.0,64,76],[52.9,53.0,70,57],[53.14,53.24,36,94],[53.38,53.48,42,75],[53.38,53.48,64,78],[53.64,53.74,38,84],[53.64,53.74,42,68],[53.66,53.76,69,72],[53.88,53.98,36,82],[53.88,53.98,42,62],[53.88,53.98,64,77],[54.36,54.46,42,61],[54.36,54.46,64,73],[54.62,54.72,37,105],[54.62,54.72,38,106],[54.62,54.72,42,85],[54.62,54.72,62,100],[54.64,54.74,69,78],[54.86,54.96,42,44],[55.1,55.2,42,75],[55.12,55.22,36,88],[55.6,55.7,38,94],[55.6,55.7,42,88],[55.6,55.7,44,84],[55.6,55.7,64,88],[55.6,55.7,69,76],[56.34,56.44,38,105],[56.34,56.44,40,99],[56.34,56.44,42,92],[56.34,56.44,44,87],[56.58,56.68,36,88],[56.82,56.92,42,73],[56.82,56.92,64,80],[57.56,57.66,36,91],[57.56,57.66,42,81],[57.56,57.66,44,77],[58.3,58.4,36,102],[58.3,58.4,42,86],[58.78,58.88,64,76],[58.8,58.9,38,87],[58.8,58.9,42,81],[59.04,59.14,36,88],[59.54,59.64,38,93],[59.54,59.64,42,79],[59.54,59.64,64,83],[60.04,60.14,45,78],[60.28,60.38,45,75],[60.28,60.38,64,81],[60.52,60.62,36,94],[60.52,60.62,42,84],[60.52,60.62,45,88],[60.52,60.62,64,90],[60.76,60.86,42,74],[60.78,60.88,45,77],[61.0,61.1,81,80],[61.02,61.12,45,68]]}],"files":{"audio":"audio.mp3","midi":"song.mid"},"credit":{"text":"\"Fluffing a Duck\" by Kevin MacLeod (incompetech.com)","url":"https://incompetech.com","license":"CC BY 4.0"}};
+const PADS = ["Kick", "Snare", "Hi-hat", "Toms", "Cymbals", "Perc"];
+const DRUM_GROUP = {35:0,36:0,37:1,38:1,39:1,40:1,42:2,44:2,46:2,41:3,43:3,45:3,47:3,48:3,50:3,49:4,51:4,52:4,53:4,55:4,57:4,59:4};
+const LOOK = 2.6;
+const $ = s => document.querySelector(s);
+const cv = $("#cv"), ctx = cv.getContext("2d"), audio = $("#audio");
+const isBlack = p => [1,3,6,8,10].includes(((p % 12) + 12) % 12);
+const fmt = t => { t = Math.max(0, t); return `${Math.floor(t/60)}:${String(Math.floor(t%60)).padStart(2,"0")}`; };
+const hexRgb = h => [1,3,5].map(i => parseInt(h.slice(i, i+2), 16));
+const mixRgb = (a, b, k) => a.map((x, i) => Math.round(x*(1-k) + b[i]*k));
+const css = c => `rgb(${c[0]},${c[1]},${c[2]})`;
+
+if (!DATA) { document.body.innerHTML = "<p style='padding:2em'>No song data. Run <code>python play.py --input song.mp3</code> to make one.</p>"; throw 0; }
+
+const tracks = DATA.tracks.map((t, i) => ({...t, idx:i, rgb:hexRgb(t.color), on:true, notes:t.notes}));
+const drums = tracks.find(t => t.is_drum);
+const pitched = tracks.filter(t => !t.is_drum);
+const [LO, HI] = DATA.range;
+const files = DATA.files || {audio:"audio.mp3", midi:"song.mid", video:"playalong.mp4"};
+audio.src = files.audio;
+$("#songTitle").textContent = DATA.title;
+document.title = `${DATA.title} · play-along`;
+if (DATA.credit) {
+  const c = $("#credit");
+  c.append("Music: ");
+  if (DATA.credit.url) { const a = document.createElement("a"); a.href = DATA.credit.url; a.target = "_blank"; a.rel = "noopener"; a.textContent = DATA.credit.text; c.append(a); }
+  else c.append(DATA.credit.text);
+  if (DATA.credit.license) c.append(` (${DATA.credit.license})`);
+}
+for (const [k, label] of [["midi","MIDI"],["video","Video"]]) {
+  if (!files[k]) continue;
+  const a = document.createElement("a"); a.href = files[k]; a.download = ""; a.innerHTML = `<button>⤓ ${label}</button>`; $("#downloads").append(a);
+}
+
+// ---------- state ----------
+let speed = 1, hear = "orig", loopA = null, loopB = null;
+let lastT = 0, lastWall = 0;
+function songTime() {
+  if (audio.paused) return audio.currentTime;
+  const now = performance.now(), t = audio.currentTime;
+  if (t !== lastT) { lastT = t; lastWall = now; return t; }
+  return t + Math.min(0.25, (now - lastWall) / 1000 * speed);
+}
+
+// ---------- layout ----------
+let W = 0, H = 0, K = 1, topH, kbY, kbH, padW, kbW, spans = {};
+function layout() {
+  const r = cv.getBoundingClientRect(), dpr = window.devicePixelRatio || 1;
+  cv.width = Math.round(r.width * dpr); cv.height = Math.round(r.height * dpr);
+  W = cv.width; H = cv.height; K = W / 1280;
+  topH = Math.round(14 * K); kbH = Math.round(118 * K); kbY = H - kbH;
+  padW = drums ? Math.round((r.width < 600 ? 110 : 150) * K) : 0; kbW = W - padW;
+  const whites = []; for (let p = LO; p <= HI; p++) if (!isBlack(p)) whites.push(p);
+  const ww = kbW / whites.length; spans = {}; let wi = 0;
+  for (let p = LO; p <= HI; p++) {
+    if (isBlack(p)) { const c = wi * ww; spans[p] = [c - ww*0.3, c + ww*0.3]; }
+    else { spans[p] = [wi * ww, (wi + 1) * ww]; wi++; }
+  }
+}
+new ResizeObserver(() => { layout(); draw(); }).observe(cv);
+
+function rr(x0, y0, x1, y1, r) {
+  r = Math.max(0, Math.min(r, (x1 - x0) / 2, (y1 - y0) / 2));
+  ctx.beginPath(); ctx.moveTo(x0 + r, y0); ctx.arcTo(x1, y0, x1, y1, r); ctx.arcTo(x1, y1, x0, y1, r);
+  ctx.arcTo(x0, y1, x0, y0, r); ctx.arcTo(x0, y0, x1, y0, r); ctx.closePath(); ctx.fill();
+}
+function firstVisible(notes, t0) {   // notes sorted by onset; long notes can start earlier, so back off 30 s
+  let lo = 0, hi = notes.length, target = t0 - 30;
+  while (lo < hi) { const m = (lo + hi) >> 1; if (notes[m][0] < target) lo = m + 1; else hi = m; }
+  return lo;
+}
+
+// ---------- drawing ----------
+function draw() {
+  if (!W) return;
+  const t = songTime();
+  const g = ctx.createLinearGradient(0, 0, 0, H); g.addColorStop(0, "#0d0f1c"); g.addColorStop(1, "#1b1030");
+  ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+  const pps = (kbY - topH) / LOOK, r = Math.max(2, 4 * K);
+  ctx.strokeStyle = "#342a48"; ctx.lineWidth = 1;
+  for (let p = LO; p <= HI; p++) if (p % 12 === 0) { const x = Math.round(spans[p][0]) + .5; ctx.beginPath(); ctx.moveTo(x, topH); ctx.lineTo(x, kbY); ctx.stroke(); }
+  const pressed = {};
+  const order = [...pitched].sort((a, b) => a.on - b.on);
+  for (const tr of order) {
+    const base = tr.on ? tr.rgb : mixRgb(tr.rgb, [13, 15, 28], 0.8);
+    for (let i = firstVisible(tr.notes, t); i < tr.notes.length; i++) {
+      const [a, b, p] = tr.notes[i];
+      if (a > t + LOOK) break;
+      if (b < t - 0.05 || !spans[p]) continue;
+      const [xa, xb] = spans[p];
+      const yb = Math.min(kbY, kbY - (a - t) * pps), yt = Math.max(topH, kbY - (b - t) * pps);
+      if (yb - yt < 2) continue;
+      const sounding = a <= t && b > t && tr.on;
+      const c = sounding ? mixRgb(base, [255,255,255], 0.35) : base;
+      ctx.fillStyle = css(mixRgb(c, [0,0,0], 0.45)); rr(xa + 1, yt, xb - 1, yb, r);
+      ctx.fillStyle = css(c); rr(xa + 2, yt + 1, xb - 2, yb - 1, r - 1);
+      if (sounding) pressed[p] = tr.rgb;
+    }
+  }
+  // glow where notes meet the keys
+  ctx.globalCompositeOperation = "lighter";
+  for (const p in pressed) {
+    const [xa, xb] = spans[p], cx = (xa + xb) / 2, rad = 26 * K;
+    const gg = ctx.createRadialGradient(cx, kbY, 0, cx, kbY, rad);
+    gg.addColorStop(0, `rgba(${pressed[p].join(",")},0.9)`); gg.addColorStop(1, "rgba(0,0,0,0)");
+    ctx.fillStyle = gg; ctx.fillRect(cx - rad, kbY - rad, rad * 2, rad * 2);
+  }
+  ctx.globalCompositeOperation = "source-over";
+  // keyboard
+  ctx.fillStyle = "#121014"; ctx.fillRect(0, kbY, kbW, kbH);
+  for (let p = LO; p <= HI; p++) if (!isBlack(p)) {
+    const [a, b] = spans[p]; ctx.fillStyle = pressed[p] ? css(mixRgb(pressed[p], [255,255,255], 0.25)) : "#ececf0";
+    ctx.fillRect(a + 1, kbY, b - a - 2, kbH);
+  }
+  for (let p = LO; p <= HI; p++) if (isBlack(p)) {
+    const [a, b] = spans[p]; ctx.fillStyle = pressed[p] ? css(pressed[p]) : "#1e1e22";
+    ctx.fillRect(a, kbY, b - a, kbH * 0.62);
+  }
+  ctx.fillStyle = "#9696a0"; ctx.font = `${Math.max(9, 11 * K)}px Arial`; ctx.textAlign = "center"; ctx.textBaseline = "alphabetic";
+  for (let p = LO; p <= HI; p++) if (p % 12 === 0) ctx.fillText(`C${Math.floor(p/12) - 1}`, (spans[p][0] + spans[p][1]) / 2, H - 6 * K);
+  ctx.fillStyle = "#c85a5a"; ctx.fillRect(0, kbY - Math.max(1, K), kbW, Math.max(2, 2 * K));
+  if (drums) drawDrums(t);
+  // progress line at the top
+  ctx.fillStyle = "#2a2540"; ctx.fillRect(0, 0, W, topH);
+  const dur = DATA.duration || audio.duration || 1;
+  if (loopA !== null && loopB !== null) { ctx.fillStyle = "#ffd16655"; ctx.fillRect(loopA / dur * W, 0, (loopB - loopA) / dur * W, topH); }
+  ctx.fillStyle = "#ffd166"; ctx.fillRect(0, topH - 4 * K, W * Math.min(1, t / dur), 4 * K);
+}
+
+function drawDrums(t) {
+  const x0 = kbW, n = PADS.length, gap = (kbY - topH) / n;
+  ctx.fillStyle = "#12101e"; ctx.fillRect(x0, topH, padW, H - topH);
+  ctx.fillStyle = "#342a48"; ctx.fillRect(x0, topH, 1, H - topH);
+  const last = {};
+  const ns = drums.notes;
+  for (let i = firstVisible(ns, t - 0.4); i < ns.length; i++) {
+    const [a, , p] = ns[i]; if (a > t) break; if (a < t - 0.4) continue;
+    const gi = DRUM_GROUP[p] ?? 5; last[gi] = Math.max(last[gi] ?? -9, a);
+  }
+  const R = Math.min(padW * 0.30, gap * 0.36);
+  ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.font = `${Math.max(10, 13 * K)}px Arial`;
+  for (let i = 0; i < n; i++) {
+    const cx = x0 + padW / 2, cy = topH + gap * (i + 0.5);
+    const hit = drums.on && last[i] !== undefined ? Math.max(0, 1 - (t - last[i]) / 0.35) : 0;
+    ctx.fillStyle = css(mixRgb([28, 24, 40], [232, 232, 240], 0.55 * hit));
+    ctx.beginPath(); ctx.arc(cx, cy, R, 0, 7); ctx.fill();
+    ctx.strokeStyle = css(mixRgb([80, 66, 102], [232, 232, 240], 0.25 + 0.75 * hit)); ctx.lineWidth = Math.max(1, 2 * K);
+    ctx.stroke();
+    if (hit > 0) { ctx.globalAlpha = hit; ctx.beginPath(); ctx.arc(cx, cy, R * (1 + 0.5 * (1 - hit)), 0, 7); ctx.lineWidth = 1; ctx.stroke(); ctx.globalAlpha = 1; }
+    ctx.fillStyle = hit > 0.45 ? "#1e1828" : (drums.on ? "#e1e1eb" : "#6e6a80");
+    ctx.fillText(PADS[i], cx, cy);
+  }
+}
+
+// ---------- synth (WebAudio) ----------
+let AC = null, master = null, voices = [], schedT = 0, noiseBuf = null;
+function ensureAudio() {
+  if (AC) return;
+  AC = new (window.AudioContext || window.webkitAudioContext)();
+  const comp = AC.createDynamicsCompressor(); comp.threshold.value = -18; comp.ratio.value = 6; comp.connect(AC.destination);
+  master = AC.createGain(); master.gain.value = 0.5; master.connect(comp);
+  noiseBuf = AC.createBuffer(1, AC.sampleRate, AC.sampleRate);
+  const d = noiseBuf.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+}
+const hz = p => 440 * Math.pow(2, (p - 69) / 12);
+function family(prog) {
+  if (prog < 8) return "piano"; if (prog < 16) return "bell"; if (prog < 24) return "organ"; if (prog < 32) return "pluck";
+  if (prog < 40) return "bass"; if (prog < 56) return "strings"; if (prog < 64) return "brass"; if (prog < 72) return "reed";
+  if (prog < 80) return "pipe"; return "synth";
+}
+function voice(tr, when, dur, p, vel) {
+  const f = family(tr.program || 0), v = (vel / 127) * 0.22;
+  const out = AC.createGain(); out.connect(master);
+  const lp = AC.createBiquadFilter(); lp.type = "lowpass"; lp.connect(out);
+  const osc = AC.createOscillator(); osc.connect(lp); osc.frequency.value = hz(p);
+  const g = out.gain; g.setValueAtTime(0, when);
+  let end = when + dur;
+  const types = {piano:"triangle", bell:"sine", organ:"square", pluck:"sawtooth", bass:"triangle", strings:"sawtooth",
+                 brass:"sawtooth", reed:"square", pipe:"sine", synth:"sawtooth"};
+  osc.type = types[f];
+  lp.frequency.value = {piano:4000, bell:8000, organ:2500, pluck:2200, bass:900, strings:2200, brass:1800, reed:1600, pipe:6000, synth:2600}[f];
+  if (f === "piano" || f === "pluck" || f === "bell") {          // struck: fast attack, decay
+    g.linearRampToValueAtTime(v * 1.2, when + 0.005);
+    g.setTargetAtTime(0, when + 0.005, f === "bell" ? 0.5 : 0.35);
+    end = Math.max(end, when + 0.25); g.setTargetAtTime(0, end, 0.08);
+  } else {                                                        // blown / bowed: soft attack, sustain
+    const att = f === "strings" ? 0.08 : 0.03;
+    g.linearRampToValueAtTime(v, when + att); g.setValueAtTime(v, Math.max(when + att, end)); g.setTargetAtTime(0, Math.max(when + att, end), 0.06);
+    if (f === "pipe" || f === "strings") { const lfo = AC.createOscillator(), lg = AC.createGain(); lfo.frequency.value = 5.2; lg.gain.value = hz(p) * 0.004; lfo.connect(lg); lg.connect(osc.frequency); lfo.start(when); lfo.stop(end + 0.4); voices.push(lfo); }
+  }
+  osc.start(when); osc.stop(end + 0.5); voices.push(osc);
+}
+function drumHit(when, p, vel) {
+  const gi = DRUM_GROUP[p] ?? 5, v = (vel / 127) * 0.5;
+  const out = AC.createGain(); out.connect(master); voices.push(out);
+  if (gi === 0) {                       // kick
+    const o = AC.createOscillator(); o.frequency.setValueAtTime(140, when); o.frequency.exponentialRampToValueAtTime(45, when + 0.12);
+    out.gain.setValueAtTime(v * 1.4, when); out.gain.setTargetAtTime(0, when + 0.01, 0.09); o.connect(out); o.start(when); o.stop(when + 0.5); voices.push(o);
+    return;
+  }
+  if (gi === 3) {                       // toms
+    const o = AC.createOscillator(); o.frequency.setValueAtTime(hz(p) * 2.2, when); o.frequency.exponentialRampToValueAtTime(hz(p) * 1.4, when + 0.2);
+    out.gain.setValueAtTime(v, when); out.gain.setTargetAtTime(0, when + 0.01, 0.12); o.connect(out); o.start(when); o.stop(when + 0.6); voices.push(o);
+    return;
+  }
+  const n = AC.createBufferSource(); n.buffer = noiseBuf;
+  const f = AC.createBiquadFilter(); n.connect(f); f.connect(out);
+  const cfg = {1:["bandpass", 1800, 0.07, 1.0], 2:["highpass", 7500, 0.035, 0.6], 4:["highpass", 5000, 0.45, 0.45], 5:["bandpass", 3000, 0.04, 0.5]}[gi];
+  f.type = cfg[0]; f.frequency.value = cfg[1];
+  out.gain.setValueAtTime(v * cfg[3], when); out.gain.setTargetAtTime(0, when + 0.003, cfg[2]);
+  n.start(when, Math.random() * 0.5); n.stop(when + cfg[2] * 6 + 0.05); voices.push(n);
+}
+function stopVoices() { for (const v of voices) { try { v.stop ? v.stop() : null; v.disconnect(); } catch (e) {} } voices = []; }
+function schedule() {
+  if (!AC || audio.paused || hear === "orig") return;
+  const t = songTime(), horizon = t + 0.25 * speed;
+  const from = Math.max(schedT, t);
+  for (const tr of tracks) {
+    if (!tr.on) continue;
+    const ns = tr.notes;
+    for (let i = firstVisible(ns, from); i < ns.length; i++) {
+      const [a, b, p, vel] = ns[i];
+      if (a >= horizon) break;
+      if (a < from) continue;
+      const when = AC.currentTime + (a - t) / speed;
+      if (tr.is_drum) drumHit(when, p, vel); else voice(tr, when, (b - a) / speed, p, vel);
+    }
+  }
+  schedT = horizon;
+  if (voices.length > 600) voices = voices.slice(-300);
+}
+function resync() { stopVoices(); schedT = songTime(); }
+
+// ---------- controls ----------
+function setHear(h) {
+  hear = h; document.querySelectorAll("[data-hear]").forEach(b => b.classList.toggle("on", b.dataset.hear === h));
+  audio.volume = h === "synth" ? 0 : h === "mix" ? 0.35 : 1;
+  if (h !== "orig") ensureAudio();
+  resync();
+}
+function setSpeed(s) {
+  speed = s; audio.playbackRate = s; audio.preservesPitch = true;
+  document.querySelectorAll("[data-speed]").forEach(b => b.classList.toggle("on", +b.dataset.speed === s));
+  resync();
+}
+function toggle(tr) { tr.on = !tr.on; renderChips(); resync(); }
+function solo(tr) {
+  const only = tracks.every(x => x.on === (x === tr));
+  tracks.forEach(x => x.on = only ? true : x === tr);
+  if (!only && hear === "orig") setHear("synth");
+  if (only && hear === "synth") setHear("orig");
+  renderChips(); resync();
+}
+function renderChips() {
+  const box = $("#chips"); box.innerHTML = "";
+  tracks.forEach((tr, i) => {
+    const c = document.createElement("div"); c.className = "chip" + (tr.on ? "" : " off");
+    c.innerHTML = `<span class="dot" style="background:${tr.color}"></span><span class="name"></span><span class="n">${tr.notes.length}</span><button class="solo">Solo</button>`;
+    c.querySelector(".name").textContent = `${i < 9 ? (i + 1) + " · " : ""}${tr.name}`;
+    c.querySelector(".name").onclick = () => toggle(tr);
+    c.querySelector(".dot").onclick = () => toggle(tr);
+    const sb = c.querySelector(".solo"); sb.onclick = () => solo(tr);
+    if (tracks.every(x => x.on === (x === tr))) sb.classList.add("on");
+    box.append(c);
+  });
+}
+async function playPause() {
+  if (audio.paused) { if (AC) await AC.resume(); await audio.play(); } else audio.pause();
+}
+audio.addEventListener("play", () => { $("#play").textContent = "Pause"; $("#bigplay").classList.add("hidden"); resync(); });
+audio.addEventListener("pause", () => { $("#play").textContent = "Play"; stopVoices(); draw(); });
+audio.addEventListener("seeked", () => { resync(); draw(); });
+audio.addEventListener("ended", () => { $("#bigplay").classList.remove("hidden"); });
+$("#play").onclick = playPause;
+cv.onclick = playPause;
+document.querySelectorAll("[data-hear]").forEach(b => b.onclick = () => setHear(b.dataset.hear));
+document.querySelectorAll("[data-speed]").forEach(b => b.onclick = () => setSpeed(+b.dataset.speed));
+const seekTo = t => { audio.currentTime = Math.max(0, Math.min(t, (DATA.duration || audio.duration) - 0.05)); };
+$("#seek").onclick = e => { const r = e.currentTarget.getBoundingClientRect(); seekTo((e.clientX - r.left) / r.width * (DATA.duration || audio.duration)); };
+$("#setA").onclick = () => { loopA = songTime(); if (loopB !== null && loopB <= loopA) loopB = null; loopUI(); };
+$("#setB").onclick = () => { const t = songTime(); if (loopA === null) loopA = Math.max(0, t - 8); if (t > loopA) loopB = t; loopUI(); };
+$("#clearLoop").onclick = () => { loopA = loopB = null; loopUI(); };
+function loopUI() {
+  const band = $("#loopband"), dur = DATA.duration || audio.duration;
+  $("#setA").classList.toggle("on", loopA !== null); $("#setB").classList.toggle("on", loopB !== null);
+  if (loopA !== null && loopB !== null) { band.classList.remove("hidden"); band.style.left = (loopA / dur * 100) + "%"; band.style.width = ((loopB - loopA) / dur * 100) + "%"; }
+  else band.classList.add("hidden");
+}
+document.addEventListener("keydown", e => {
+  if (e.target.tagName === "INPUT") return;
+  if (e.code === "Space") { e.preventDefault(); playPause(); }
+  else if (e.key === "ArrowRight") seekTo(songTime() + 5);
+  else if (e.key === "ArrowLeft") seekTo(songTime() - 5);
+  else if (e.key === "[") setSpeed(speed <= 0.5 ? 0.5 : speed <= 0.75 ? 0.5 : 0.75);
+  else if (e.key === "]") setSpeed(speed >= 0.75 ? 1 : 0.75);
+  else if (/^[1-9]$/.test(e.key) && tracks[+e.key - 1]) toggle(tracks[+e.key - 1]);
+});
+
+function tick() {
+  const t = songTime(), dur = DATA.duration || audio.duration || 1;
+  if (loopA !== null && loopB !== null && !audio.paused && t >= loopB) seekTo(loopA);
+  $("#fill").style.width = (Math.min(1, t / dur) * 100) + "%";
+  $("#time").textContent = `${fmt(t)} / ${fmt(dur)}`;
+  schedule();
+  draw();
+  requestAnimationFrame(tick);
+}
+renderChips(); layout(); requestAnimationFrame(tick);
+</script>
+</body>
+</html>

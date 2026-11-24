@@ -1,0 +1,7 @@
+# Python 3.10+ (3.12 recommended)
+dettato @ git+https://github.com/kobimusic/dettato
+opencv-python-headless>=4.8
+pillow>=10
+numpy>=1.24
+imageio-ffmpeg>=0.5
+yt-dlp>=2025.1.1

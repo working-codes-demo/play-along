@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>play-along: any song, every instrument, its own colour</title>
+<meta name="description" content="Turn any song into a falling-notes play-along video and a practice player: solo an instrument, hear it alone, slow it down, loop a bar.">
+<style>
+  :root { --bg:#0d0f1c; --panel:#161327; --line:#2a2540; --text:#ecebf3; --dim:#9a97ad; --amber:#ffd166; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--text); font:15px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif; }
+  a { color:var(--amber); }
+  .wrap { max-width:1100px; margin:0 auto; padding:28px 18px 40px; }
+  .top { display:flex; align-items:center; gap:12px; flex-wrap:wrap; }
+  h1 { margin:0; font-size:28px; } h1 b { color:var(--amber); }
+  .gh { margin-left:auto; text-decoration:none; background:var(--amber); color:#1b1530; font-weight:700; padding:8px 14px; border-radius:999px; }
+  .lead { color:var(--dim); font-size:17px; margin:10px 0 22px; max-width:760px; }
+  .hero { width:100%; max-width:720px; border-radius:12px; display:block; box-shadow:0 10px 40px #0008; }
+  h2 { margin:30px 0 12px; font-size:19px; }
+  .grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(min(420px, 100%), 1fr)); gap:16px; }
+  .card { background:var(--panel); border:1px solid var(--line); border-radius:12px; overflow:hidden; text-decoration:none; color:var(--text); transition:transform .15s, border-color .15s; }
+  .card:hover { transform:translateY(-2px); border-color:#4a4370; }
+  .card img { width:100%; aspect-ratio:16/9; object-fit:cover; display:block; }
+  .card .body { padding:12px 14px 14px; }
+  .card h3 { margin:0 0 8px; font-size:16px; }
+  .chips { display:flex; flex-wrap:wrap; gap:6px 10px; font-size:12.5px; color:var(--dim); }
+  .c i { display:inline-block; width:10px; height:10px; border-radius:3px; margin-right:5px; vertical-align:-1px; }
+  .meta { margin-top:8px; font-size:13.5px; }
+  .credit { margin-top:6px; font-size:12px; color:var(--dim); }
+  ol { color:var(--dim); padding-left:20px; } ol b { color:var(--text); }
+  code { background:var(--panel); border:1px solid var(--line); border-radius:6px; padding:2px 6px; font-size:13.5px; }
+  pre { background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:12px 14px; overflow:auto; font-size:13.5px; }
+  footer { margin-top:34px; border-top:1px solid var(--line); padding-top:14px; color:var(--dim); font-size:13px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top"><h1><b>▶</b> play-along</h1><a class="gh" href="https://github.com/working-codes-demo/play-along">Code on GitHub</a></div>
+  <p class="lead">Any song or YouTube link in, a falling-notes play-along out, with <b>every instrument in its own colour</b>.
+    Pick a song below: solo the clarinet and hear it on its own, slow it to half speed, loop the bar you are learning.</p>
+  <img class="hero" src="hero.gif" alt="falling notes in a different colour for every instrument">
+
+  <h2>Try a song</h2>
+  <div class="grid">
+<a class="card" href="monkeys/">
+  <img src="monkeys/thumb.jpg" alt="Monkeys Spinning Monkeys falling notes" loading="lazy">
+  <div class="body"><h3>Monkeys Spinning Monkeys</h3><div class="chips"><span class="c"><i style="background:#4cc9f0"></i>String ensemble</span><span class="c"><i style="background:#ff5d8f"></i>Flute</span><span class="c"><i style="background:#ffd166"></i>Double bass</span></div>
+  <div class="meta">Strings, flute and double bass. Mute the strings and follow the bass.</div>
+  <div class="credit">&quot;Monkeys Spinning Monkeys&quot; by Kevin MacLeod (incompetech.com) · CC BY 4.0</div></div></a>
+<a class="card" href="duck/">
+  <img src="duck/thumb.jpg" alt="Fluffing a Duck falling notes" loading="lazy">
+  <div class="body"><h3>Fluffing a Duck</h3><div class="chips"><span class="c"><i style="background:#4cc9f0"></i>Electric piano</span><span class="c"><i style="background:#ff5d8f"></i>Clarinet</span><span class="c"><i style="background:#ffd166"></i>Flute</span><span class="c"><i style="background:#06d6a0"></i>Synth strings</span><span class="c"><i style="background:#e8e8f0"></i>Drums</span></div>
+  <div class="meta">Five parts plus drums. Solo the clarinet and hear it on its own.</div>
+  <div class="credit">&quot;Fluffing a Duck&quot; by Kevin MacLeod (incompetech.com) · CC BY 4.0</div></div></a>
+<a class="card" href="chopin/">
+  <img src="chopin/thumb.jpg" alt="Chopin · Nocturne Op. 9 No. 2 falling notes" loading="lazy">
+  <div class="body"><h3>Chopin · Nocturne Op. 9 No. 2</h3><div class="chips"><span class="c"><i style="background:#4cc9f0"></i>Piano · right hand</span><span class="c"><i style="background:#ff5d8f"></i>Piano · left hand</span></div>
+  <div class="meta">Solo piano, split into right and left hand. Learn the left hand at 0.5×.</div>
+  <div class="credit">Frédéric Chopin, Nocturne Op. 9 No. 2, recording from Wikimedia Commons · Public domain</div></div></a>
+<a class="card" href="sneaky-snitch/">
+  <img src="sneaky-snitch/thumb.jpg" alt="Sneaky Snitch falling notes" loading="lazy">
+  <div class="body"><h3>Sneaky Snitch</h3><div class="chips"><span class="c"><i style="background:#4cc9f0"></i>String ensemble</span><span class="c"><i style="background:#ff5d8f"></i>Double bass</span><span class="c"><i style="background:#ffd166"></i>Electric piano</span><span class="c"><i style="background:#e8e8f0"></i>Drums</span></div>
+  <div class="meta">Strings, double bass, electric piano and drums.</div>
+  <div class="credit">&quot;Sneaky Snitch&quot; by Kevin MacLeod (incompetech.com) · CC BY 4.0</div></div></a>
+  </div>
+
+  <h2>Make your own</h2>
+  <pre>git clone https://github.com/working-codes-demo/play-along && cd play-along
+pip install -r requirements.txt
+python play.py --input song.mp3          # or a YouTube link</pre>
+  <ol>
+    <li><b>Transcribe:</b> <a href="https://github.com/kobimusic/dettato">dettato</a> (28M parameters) writes the notes of every instrument and the drums.</li>
+    <li><b>Render:</b> a 720p or 1080p falling-notes video with the original audio, plus solo and slow-practice versions.</li>
+    <li><b>Practice:</b> this player, as one HTML file you can open offline.</li>
+  </ol>
+
+  <footer>
+    Notes are transcribed automatically and will not be perfect: notes can land on the wrong instrument, and there is no sheet-music quantisation.
+    Music is public domain or Creative Commons, credited on each card. play-along by Yogesh Kumar, Apache-2.0.
+  </footer>
+</div>
+</body>
+</html>

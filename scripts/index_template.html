@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>play-along: any song, every instrument, its own colour</title>
+<meta name="description" content="Turn any song into a falling-notes play-along video and a practice player: solo an instrument, hear it alone, slow it down, loop a bar.">
+<style>
+  :root { --bg:#0d0f1c; --panel:#161327; --line:#2a2540; --text:#ecebf3; --dim:#9a97ad; --amber:#ffd166; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--text); font:15px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif; }
+  a { color:var(--amber); }
+  .wrap { max-width:1100px; margin:0 auto; padding:28px 18px 40px; }
+  .top { display:flex; align-items:center; gap:12px; flex-wrap:wrap; }
+  h1 { margin:0; font-size:28px; } h1 b { color:var(--amber); }
+  .gh { margin-left:auto; text-decoration:none; background:var(--amber); color:#1b1530; font-weight:700; padding:8px 14px; border-radius:999px; }
+  .lead { color:var(--dim); font-size:17px; margin:10px 0 22px; max-width:760px; }
+  .hero { width:100%; max-width:720px; border-radius:12px; display:block; box-shadow:0 10px 40px #0008; }
+  h2 { margin:30px 0 12px; font-size:19px; }
+  .grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(min(420px, 100%), 1fr)); gap:16px; }
+  .card { background:var(--panel); border:1px solid var(--line); border-radius:12px; overflow:hidden; text-decoration:none; color:var(--text); transition:transform .15s, border-color .15s; }
+  .card:hover { transform:translateY(-2px); border-color:#4a4370; }
+  .card img { width:100%; aspect-ratio:16/9; object-fit:cover; display:block; }
+  .card .body { padding:12px 14px 14px; }
+  .card h3 { margin:0 0 8px; font-size:16px; }
+  .chips { display:flex; flex-wrap:wrap; gap:6px 10px; font-size:12.5px; color:var(--dim); }
+  .c i { display:inline-block; width:10px; height:10px; border-radius:3px; margin-right:5px; vertical-align:-1px; }
+  .meta { margin-top:8px; font-size:13.5px; }
+  .credit { margin-top:6px; font-size:12px; color:var(--dim); }
+  ol { color:var(--dim); padding-left:20px; } ol b { color:var(--text); }
+  code { background:var(--panel); border:1px solid var(--line); border-radius:6px; padding:2px 6px; font-size:13.5px; }
+  pre { background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:12px 14px; overflow:auto; font-size:13.5px; }
+  footer { margin-top:34px; border-top:1px solid var(--line); padding-top:14px; color:var(--dim); font-size:13px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top"><h1><b>▶</b> play-along</h1><a class="gh" href="https://github.com/working-codes-demo/play-along">Code on GitHub</a></div>
+  <p class="lead">Any song or YouTube link in, a falling-notes play-along out, with <b>every instrument in its own colour</b>.
+    Pick a song below: solo the clarinet and hear it on its own, slow it to half speed, loop the bar you are learning.</p>
+  <img class="hero" src="hero.gif" alt="falling notes in a different colour for every instrument">
+
+  <h2>Try a song</h2>
+  <div class="grid">
+<!--CARDS-->
+  </div>
+
+  <h2>Make your own</h2>
+  <pre>git clone https://github.com/working-codes-demo/play-along && cd play-along
+pip install -r requirements.txt
+python play.py --input song.mp3          # or a YouTube link</pre>
+  <ol>
+    <li><b>Transcribe:</b> <a href="https://github.com/kobimusic/dettato">dettato</a> (28M parameters) writes the notes of every instrument and the drums.</li>
+    <li><b>Render:</b> a 720p or 1080p falling-notes video with the original audio, plus solo and slow-practice versions.</li>
+    <li><b>Practice:</b> this player, as one HTML file you can open offline.</li>
+  </ol>
+
+  <footer>
+    Notes are transcribed automatically and will not be perfect: notes can land on the wrong instrument, and there is no sheet-music quantisation.
+    Music is public domain or Creative Commons, credited on each card. play-along by Yogesh Kumar, Apache-2.0.
+  </footer>
+</div>
+</body>
+</html>

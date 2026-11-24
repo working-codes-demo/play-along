@@ -1,0 +1,406 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>play-along</title>
+<style>
+  :root { --bg:#0d0f1c; --panel:#161327; --line:#2a2540; --text:#ecebf3; --dim:#9a97ad; --amber:#ffd166; }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--text); font:14px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif; }
+  header { display:flex; align-items:center; gap:14px; padding:12px 18px; border-bottom:1px solid var(--line); flex-wrap:wrap; }
+  header h1 { font-size:18px; margin:0; font-weight:700; }
+  header h1 b { color:var(--amber); }
+  header .song { color:var(--dim); font-size:14px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; flex:1; min-width:120px; }
+  a { color:var(--amber); }
+  .gh { margin-left:auto; text-decoration:none; background:var(--amber); color:#1b1530; font-weight:700; padding:6px 12px; border-radius:999px; font-size:13px; white-space:nowrap; }
+  main { max-width:1280px; margin:0 auto; padding:14px 16px 28px; }
+  .stage { position:relative; width:100%; aspect-ratio:16/9; background:#000; border-radius:12px; overflow:hidden; box-shadow:0 10px 40px #0008; }
+  canvas { position:absolute; inset:0; width:100%; height:100%; display:block; cursor:pointer; }
+  .bigplay { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; pointer-events:none; }
+  .bigplay span { width:84px; height:84px; border-radius:50%; background:#ffd166e6; display:flex; align-items:center; justify-content:center; box-shadow:0 6px 30px #0009; }
+  .bigplay span::after { content:""; border-left:30px solid #1b1530; border-top:18px solid transparent; border-bottom:18px solid transparent; margin-left:8px; }
+  .hidden { display:none !important; }
+  .bar { display:flex; align-items:center; gap:10px; margin-top:12px; flex-wrap:wrap; }
+  button, select { background:var(--panel); color:var(--text); border:1px solid var(--line); border-radius:8px; padding:7px 12px; font:inherit; cursor:pointer; }
+  button:hover { border-color:#4a4370; }
+  button.on { background:var(--amber); color:#1b1530; border-color:var(--amber); font-weight:700; }
+  #play { min-width:76px; font-weight:700; }
+  .time { font-variant-numeric:tabular-nums; color:var(--dim); min-width:92px; }
+  .seek { flex:1; min-width:160px; height:28px; position:relative; cursor:pointer; }
+  .seek .track { position:absolute; left:0; right:0; top:12px; height:4px; background:var(--line); border-radius:2px; }
+  .seek .fill { position:absolute; left:0; top:12px; height:4px; background:var(--amber); border-radius:2px; }
+  .seek .loop { position:absolute; top:6px; height:16px; background:#ffd16633; border-left:2px solid var(--amber); border-right:2px solid var(--amber); }
+  .group { display:flex; gap:4px; align-items:center; }
+  .label { color:var(--dim); font-size:12px; text-transform:uppercase; letter-spacing:.06em; margin-right:4px; }
+  .chips { display:flex; flex-wrap:wrap; gap:8px; margin-top:14px; }
+  .chip { display:flex; align-items:center; gap:8px; padding:6px 6px 6px 10px; border-radius:999px; background:var(--panel); border:1px solid var(--line); user-select:none; }
+  .chip .dot { width:12px; height:12px; border-radius:3px; }
+  .chip .name { cursor:pointer; }
+  .chip .n { color:var(--dim); font-size:12px; }
+  .chip.off { opacity:.45; }
+  .chip.off .name { text-decoration:line-through; }
+  .chip .solo { padding:2px 8px; font-size:12px; border-radius:999px; }
+  .hint { color:var(--dim); font-size:13px; margin-top:12px; }
+  kbd { background:var(--panel); border:1px solid var(--line); border-bottom-width:2px; border-radius:4px; padding:0 5px; font-size:12px; }
+  footer { color:var(--dim); font-size:12.5px; margin-top:22px; border-top:1px solid var(--line); padding-top:12px; }
+  @media (max-width:700px){ header .song{display:none} .time{min-width:0} }
+</style>
+</head>
+<body>
+<header>
+  <h1><b>▶</b> play-along</h1>
+  <div class="song" id="songTitle"></div>
+  <a class="gh" href="https://github.com/working-codes-demo/play-along" target="_blank" rel="noopener">Code on GitHub</a>
+</header>
+<main>
+  <div class="stage" id="stage">
+    <canvas id="cv"></canvas>
+    <div class="bigplay" id="bigplay"><span></span></div>
+  </div>
+  <audio id="audio" preload="auto"></audio>
+
+  <div class="bar">
+    <button id="play">Play</button>
+    <span class="time" id="time">0:00 / 0:00</span>
+    <div class="seek" id="seek"><div class="track"></div><div class="loop hidden" id="loopband"></div><div class="fill" id="fill"></div></div>
+  </div>
+
+  <div class="bar">
+    <div class="group"><span class="label">Hear</span>
+      <button data-hear="orig" class="on">Recording</button>
+      <button data-hear="synth">Synth</button>
+      <button data-hear="mix">Both</button>
+    </div>
+    <div class="group"><span class="label">Speed</span>
+      <button data-speed="0.5">0.5×</button><button data-speed="0.75">0.75×</button><button data-speed="1" class="on">1×</button>
+    </div>
+    <div class="group"><span class="label">Loop</span>
+      <button id="setA">A</button><button id="setB">B</button><button id="clearLoop">Off</button>
+    </div>
+    <div class="group" id="downloads"></div>
+  </div>
+
+  <div class="chips" id="chips"></div>
+  <div class="hint">Click an instrument to hide it, <b>Solo</b> to keep only it. <b>Synth</b> plays just the instruments you kept, so you can hear one part on its own.
+    Keys: <kbd>Space</kbd> play, <kbd>←</kbd><kbd>→</kbd> 5 s, <kbd>1</kbd>–<kbd>9</kbd> instruments, <kbd>[</kbd><kbd>]</kbd> speed.</div>
+
+  <footer>
+    Notes transcribed from the recording by <a href="https://github.com/kobimusic/dettato" target="_blank" rel="noopener">dettato</a> (KobiMusic, Apache-2.0).
+    <a href="https://github.com/working-codes-demo/play-along" target="_blank" rel="noopener">play-along</a> by Yogesh Kumar.
+    <span id="credit"></span>
+  </footer>
+</main>
+
+<script>
+const DATA = {"title":"Sneaky Snitch","duration":70.0,"meta":{"dettato":{"notes":{"transcribed":436,"dropped":6,"inserted":0,"grouped":417},"tuning_cents":-6.82,"drums":{"hits":44,"router":0.9964166283607483,"model":"orchestral"}},"transcribe_s":30.8,"device":"mps","source":"Sneaky_Snitch.mp3","start":0.0,"end":70.0},"range":[31,84],"tracks":[{"name":"String ensemble","program":44,"is_drum":false,"color":"#4cc9f0","notes":[[0.396,0.566,81,102],[0.568,0.716,80,84],[0.712,1.013,81,106],[0.733,1.465,57,110],[0.787,1.064,81,79],[1.069,1.379,77,119],[1.143,1.413,77,94],[1.435,1.897,76,105],[1.948,2.11,77,101],[2.106,3.505,67,107],[2.119,3.699,79,102],[3.479,4.211,58,111],[3.513,4.215,67,113],[3.82,4.11,77,116],[4.178,4.655,79,111],[4.698,4.85,80,87],[4.846,5.168,81,111],[4.866,5.609,64,109],[4.866,5.563,61,58],[4.923,5.207,81,66],[5.199,5.521,76,110],[5.563,5.879,74,74],[5.9,6.071,81,95],[6.074,6.222,80,111],[6.236,6.538,81,97],[6.237,6.962,57,106],[6.24,6.861,69,52],[6.242,6.932,65,72],[6.312,6.603,81,62],[6.597,6.91,77,113],[6.94,7.392,76,99],[7.445,7.612,77,113],[7.611,7.935,79,106],[7.614,8.295,58,106],[7.621,8.311,67,104],[7.676,7.953,79,62],[7.959,8.154,80,113],[8.298,9.07,80,113],[8.99,9.67,58,106],[9.01,9.65,67,100],[9.073,9.711,79,94],[9.682,10.979,81,110],[9.686,11.037,61,96],[9.69,11.03,69,87],[11.078,11.398,74,90],[11.411,11.575,81,110],[11.578,11.743,80,118],[11.753,12.437,57,111],[11.755,12.414,65,106],[11.758,12.095,81,100],[12.103,12.424,77,107],[12.448,12.839,76,106],[12.949,13.121,77,109],[13.124,14.49,79,116],[13.133,13.453,58,100],[13.135,14.438,67,103],[14.511,15.226,58,111],[14.546,15.233,67,95],[14.856,15.193,79,111],[15.205,15.538,77,94],[15.545,15.878,76,97],[15.891,16.222,74,99],[16.242,16.925,73,111],[16.918,17.092,81,112],[17.084,17.245,80,108],[17.268,17.961,65,107],[17.274,17.598,81,101],[17.275,17.96,57,108],[17.629,17.95,77,104],[17.973,18.279,74,100],[18.307,18.483,82,113],[18.472,18.638,81,111],[18.65,19.356,67,103],[18.663,19.829,58,97],[18.666,18.991,82,108],[18.992,19.313,81,106],[19.351,19.697,79,112],[19.697,20.015,77,101],[20.031,20.716,61,105],[20.034,20.374,69,107],[20.049,20.373,76,100],[20.388,20.694,73,87],[20.714,21.391,69,112],[20.721,21.357,62,116],[20.731,21.397,74,107],[21.41,22.081,57,111],[22.451,22.615,81,55],[22.621,22.779,80,100],[22.769,23.069,81,104],[22.802,23.5,57,105],[22.854,23.115,81,88],[23.133,23.463,77,107],[23.492,23.88,76,104],[23.994,24.162,77,99],[24.174,25.424,67,100],[24.176,25.616,79,106],[25.552,25.846,58,114],[25.585,26.309,67,96],[25.896,26.223,77,113],[26.239,26.73,79,109],[26.754,26.909,80,104],[26.91,27.25,81,99],[26.935,27.618,64,105],[26.983,27.25,81,69],[27.274,27.56,76,90],[27.654,27.981,74,99],[27.969,28.133,81,98],[28.131,28.288,80,101],[28.31,28.63,57,102],[28.31,28.643,81,93],[28.319,28.423,65,84],[28.376,28.64,81,57],[29.501,29.667,77,108],[29.674,30.017,79,102],[29.682,30.382,58,113],[29.696,30.348,67,93],[30.026,30.324,80,112],[30.373,31.595,80,68],[31.067,31.701,58,108],[31.08,31.77,67,96],[31.085,31.413,68,55],[31.746,32.952,81,95],[31.756,32.422,57,41],[31.756,32.692,69,92],[31.757,32.712,61,105],[33.153,33.493,77,106],[33.162,33.469,74,105],[33.471,33.521,81,118],[33.562,33.652,81,107],[33.65,33.805,80,102],[33.82,34.151,81,100],[33.833,33.918,65,102],[33.844,33.942,57,97],[34.172,34.493,77,102],[34.525,34.879,76,83],[35.016,35.167,77,107],[35.108,35.215,77,67],[35.201,36.491,79,101],[35.204,35.292,58,108],[35.232,35.316,67,92],[36.592,36.676,58,104],[36.61,36.711,67,68],[36.946,37.254,79,108],[37.285,37.589,77,101],[37.613,37.933,76,103],[37.977,38.284,77,105],[37.992,38.274,74,97],[38.308,38.604,73,106],[38.654,38.974,77,108],[38.976,39.026,81,116],[39.068,39.162,81,104],[39.168,39.323,80,116],[39.346,39.65,81,107],[39.347,39.446,65,112],[39.37,39.487,57,101],[39.69,39.994,77,104],[40.048,40.35,74,109],[40.39,40.546,82,110],[40.544,40.713,81,113],[40.726,41.401,58,107],[40.731,41.05,82,107],[40.741,41.451,67,97],[40.743,41.81,73,113],[41.05,41.362,81,105],[41.129,41.373,81,79],[41.404,41.735,79,113],[41.77,42.08,77,103],[42.1,42.738,57,55],[42.105,42.756,61,106],[42.106,42.769,69,80],[42.112,42.745,73,107],[42.129,42.448,76,105],[42.44,42.75,73,76],[42.796,43.535,74,83],[42.806,43.48,62,108],[42.809,43.487,69,100],[43.482,44.127,57,101],[44.526,44.869,75,108],[44.849,45.502,55,93],[44.874,45.536,62,105],[44.877,45.188,74,101],[45.221,45.516,74,69],[45.558,45.858,73,106],[45.561,46.32,54,72],[45.901,46.219,73,84],[46.243,46.896,55,114],[46.251,46.897,62,96],[46.262,46.563,74,94],[46.593,46.904,70,98],[46.937,47.822,69,103],[47.612,48.262,55,109],[47.632,48.248,62,98],[47.974,48.123,70,105],[48.127,48.299,72,104],[48.203,48.3,72,71],[48.32,48.986,70,92],[48.993,50.069,55,109],[48.999,49.745,62,90],[49.015,49.957,67,90],[50.04,50.361,66,100],[50.061,50.366,62,88],[50.379,51.03,67,96],[50.383,51.092,54,95],[50.394,51.051,62,98],[51.07,51.394,66,112],[51.071,51.396,62,104],[51.411,52.126,54,113],[51.431,52.05,67,96],[51.448,52.147,62,91],[52.106,52.435,54,69],[52.109,52.417,69,101],[52.11,52.424,62,55],[52.444,53.142,54,112],[52.446,53.099,70,112],[52.46,53.164,62,98],[53.142,53.459,69,103],[53.478,54.091,70,108],[53.487,54.151,54,109],[53.493,54.17,62,89],[54.172,54.497,72,103],[54.18,54.502,54,101],[54.191,54.5,62,80],[54.517,55.167,73,94],[54.519,54.816,54,111],[54.533,54.83,62,100],[55.565,55.724,74,79],[55.714,55.89,75,113],[55.886,56.216,55,115],[55.899,56.551,62,107],[55.903,56.22,74,98],[56.237,56.55,73,91],[56.591,56.925,73,100],[56.937,57.273,74,107],[57.272,57.592,62,99],[57.274,57.95,55,112],[57.281,57.6,70,105],[57.619,57.94,69,113],[58.311,58.633,72,100],[58.654,59.316,62,109],[58.659,58.989,70,109],[58.668,59.317,55,87],[59.011,59.312,69,114],[59.347,60.023,69,110],[60.034,60.681,70,97],[60.035,60.705,62,102],[60.039,60.682,55,96],[60.728,61.049,66,104],[61.064,61.386,67,107],[61.408,62.075,54,112],[61.409,61.734,62,110],[61.754,62.084,66,106],[62.106,63.326,54,97],[62.114,62.425,67,92],[62.128,62.424,62,83],[62.451,63.174,54,60],[62.452,63.118,62,97],[62.792,63.117,70,110],[63.133,63.456,69,102],[63.135,63.46,62,92],[63.481,64.139,62,88],[63.487,64.13,54,106],[63.834,64.145,74,101],[64.175,64.504,62,101],[64.177,64.499,74,82],[64.191,64.83,54,82],[64.533,64.839,74,91],[64.863,65.568,79,114],[64.877,65.522,62,91],[65.553,66.202,55,96],[66.933,67.615,57,110],[66.949,67.607,65,56],[68.312,68.983,67,99],[69.691,70.334,58,106],[69.731,70.054,67,96]]},{"name":"Double bass","program":32,"is_drum":false,"color":"#ff5d8f","notes":[[0.028,1.17,38,104],[1.066,1.386,41,107],[1.406,2.336,40,105],[2.437,2.753,45,111],[2.776,3.75,43,110],[3.807,4.134,41,115],[4.159,4.802,40,113],[4.851,5.496,33,96],[5.531,6.453,38,103],[6.562,6.896,41,114],[6.912,7.85,40,107],[7.956,8.275,41,105],[8.292,8.941,43,109],[8.989,9.637,44,107],[9.672,10.336,45,104],[10.364,11.018,33,114],[11.054,11.807,38,109],[12.081,12.41,41,114],[12.431,13.178,40,106],[13.464,13.793,45,115],[13.81,14.733,43,107],[14.838,15.171,41,118],[15.189,15.837,40,110],[15.879,16.536,33,112],[16.57,17.54,38,104],[17.602,17.929,41,115],[17.948,18.603,40,110],[18.646,19.775,37,112],[20.029,20.673,33,99],[20.708,21.376,38,109],[21.407,22.063,33,107],[22.094,23.08,38,111],[23.124,23.449,41,113],[23.466,24.495,40,106],[24.503,24.826,45,113],[24.847,25.83,43,114],[25.876,26.211,41,117],[26.226,26.877,40,113],[26.912,27.602,45,101],[26.917,27.577,33,101],[27.612,28.585,38,113],[28.634,28.969,41,114],[28.986,29.964,40,111],[30.016,30.344,41,114],[30.369,31.041,43,115],[31.056,31.713,44,103],[31.746,32.397,45,112],[32.437,33.101,33,52],[33.133,34.105,38,111],[34.152,34.486,41,112],[34.503,35.287,40,114],[35.537,35.863,45,111],[35.887,36.86,43,112],[36.91,37.249,41,110],[37.26,37.91,40,111],[37.956,38.682,45,65],[37.957,38.614,33,100],[38.648,39.577,38,113],[39.673,40.025,41,113],[40.025,40.677,40,111],[40.716,41.795,37,106],[42.088,42.768,45,59],[42.097,42.755,33,99],[42.785,43.47,38,109],[43.469,44.125,33,97],[44.163,45.099,43,117],[45.197,45.524,43,62],[45.543,46.479,42,115],[46.582,46.901,42,79],[46.925,47.858,41,115],[47.951,48.282,41,103],[48.301,49.023,40,110],[49.33,49.658,40,102],[49.681,50.01,39,115],[50.027,50.369,38,115],[50.374,50.719,37,105],[50.714,51.043,38,109],[51.055,51.384,39,114],[51.405,51.76,38,118],[51.755,52.099,37,101],[52.09,52.418,38,104],[52.434,52.765,39,114],[52.78,53.399,38,115],[53.472,53.81,38,107],[53.812,54.47,39,109],[54.503,54.838,42,110],[55.193,56.395,43,111],[56.228,56.558,43,83],[56.58,57.562,42,111],[57.618,57.935,42,86],[57.954,59.152,41,113],[58.985,59.314,41,50],[59.327,60.309,40,111],[60.366,60.692,40,110],[60.715,61.062,39,106],[61.06,61.408,38,113],[61.4,61.751,37,119],[61.753,62.098,38,110],[62.086,62.432,39,106],[62.441,62.769,38,111],[62.785,63.131,37,116],[63.134,63.458,38,109],[63.465,64.158,39,107],[64.166,64.82,42,115],[64.857,65.542,43,112],[64.876,65.525,55,100],[65.546,66.197,31,115],[66.235,67.27,38,113],[67.272,67.597,41,110],[67.608,68.644,40,112],[68.651,68.982,45,110],[68.987,70.101,43,116]]},{"name":"Electric piano","program":4,"is_drum":false,"color":"#ffd166","notes":[[22.114,22.434,77,100],[22.632,22.793,76,112],[22.809,23.135,74,115],[24.029,24.21,74,113],[24.182,25.589,73,111],[27.637,27.978,77,106],[28.161,28.327,76,112],[28.328,28.62,74,114],[28.666,28.975,77,98],[29.02,29.42,76,97],[29.542,29.702,74,118],[29.7,30.757,73,112],[33.694,33.836,76,117],[33.86,34.169,74,102],[35.078,35.238,74,112],[35.222,36.525,73,113],[36.949,37.254,82,114],[37.293,37.585,81,114],[37.64,37.945,79,109],[38.322,38.619,76,111],[39.211,39.353,76,116],[39.379,39.674,74,106],[40.061,40.385,76,105],[40.583,40.761,74,111],[66.254,66.795,77,109],[66.793,66.969,76,115],[66.96,67.28,74,105],[67.292,67.618,77,110],[67.646,68.16,76,111],[68.168,68.338,74,112],[68.324,69.019,73,118]]},{"name":"Drums","program":0,"is_drum":true,"color":"#e8e8f0","notes":[[12.08,12.18,36,88],[23.48,23.58,36,92],[26.24,26.34,36,91],[26.92,27.02,36,95],[26.92,27.02,38,79],[27.12,27.22,38,69],[27.24,27.34,38,68],[27.34,27.44,38,67],[27.4,27.5,38,62],[27.46,27.56,38,59],[27.52,27.62,38,60],[27.62,27.72,36,90],[27.62,27.72,38,94],[28.64,28.74,36,87],[29.0,29.1,36,93],[32.42,32.52,36,84],[34.16,34.26,36,82],[34.5,34.6,36,89],[35.54,35.64,36,83],[37.96,38.06,36,96],[37.96,38.06,38,76],[38.16,38.26,38,66],[38.28,38.38,38,74],[38.38,38.48,38,68],[38.5,38.6,38,58],[38.56,38.66,38,60],[38.66,38.76,36,92],[42.1,42.2,36,88],[43.48,43.58,36,91],[43.48,43.58,38,81],[43.56,43.66,38,74],[43.66,43.76,38,71],[43.8,43.9,38,73],[43.94,44.04,38,64],[44.16,44.26,36,85],[47.96,48.06,36,90],[48.32,48.42,36,96],[54.86,54.96,38,72],[54.94,55.04,38,65],[55.04,55.14,38,62],[55.18,55.28,38,93],[65.54,65.64,36,93],[66.24,66.34,36,86],[67.62,67.72,36,88]]}],"files":{"audio":"audio.mp3","midi":"song.mid"},"credit":{"text":"\"Sneaky Snitch\" by Kevin MacLeod (incompetech.com)","url":"https://incompetech.com","license":"CC BY 4.0"}};
+const PADS = ["Kick", "Snare", "Hi-hat", "Toms", "Cymbals", "Perc"];
+const DRUM_GROUP = {35:0,36:0,37:1,38:1,39:1,40:1,42:2,44:2,46:2,41:3,43:3,45:3,47:3,48:3,50:3,49:4,51:4,52:4,53:4,55:4,57:4,59:4};
+const LOOK = 2.6;
+const $ = s => document.querySelector(s);
+const cv = $("#cv"), ctx = cv.getContext("2d"), audio = $("#audio");
+const isBlack = p => [1,3,6,8,10].includes(((p % 12) + 12) % 12);
+const fmt = t => { t = Math.max(0, t); return `${Math.floor(t/60)}:${String(Math.floor(t%60)).padStart(2,"0")}`; };
+const hexRgb = h => [1,3,5].map(i => parseInt(h.slice(i, i+2), 16));
+const mixRgb = (a, b, k) => a.map((x, i) => Math.round(x*(1-k) + b[i]*k));
+const css = c => `rgb(${c[0]},${c[1]},${c[2]})`;
+
+if (!DATA) { document.body.innerHTML = "<p style='padding:2em'>No song data. Run <code>python play.py --input song.mp3</code> to make one.</p>"; throw 0; }
+
+const tracks = DATA.tracks.map((t, i) => ({...t, idx:i, rgb:hexRgb(t.color), on:true, notes:t.notes}));
+const drums = tracks.find(t => t.is_drum);
+const pitched = tracks.filter(t => !t.is_drum);
+const [LO, HI] = DATA.range;
+const files = DATA.files || {audio:"audio.mp3", midi:"song.mid", video:"playalong.mp4"};
+audio.src = files.audio;
+$("#songTitle").textContent = DATA.title;
+document.title = `${DATA.title} · play-along`;
+if (DATA.credit) {
+  const c = $("#credit");
+  c.append("Music: ");
+  if (DATA.credit.url) { const a = document.createElement("a"); a.href = DATA.credit.url; a.target = "_blank"; a.rel = "noopener"; a.textContent = DATA.credit.text; c.append(a); }
+  else c.append(DATA.credit.text);
+  if (DATA.credit.license) c.append(` (${DATA.credit.license})`);
+}
+for (const [k, label] of [["midi","MIDI"],["video","Video"]]) {
+  if (!files[k]) continue;
+  const a = document.createElement("a"); a.href = files[k]; a.download = ""; a.innerHTML = `<button>⤓ ${label}</button>`; $("#downloads").append(a);
+}
+
+// ---------- state ----------
+let speed = 1, hear = "orig", loopA = null, loopB = null;
+let lastT = 0, lastWall = 0;
+function songTime() {
+  if (audio.paused) return audio.currentTime;
+  const now = performance.now(), t = audio.currentTime;
+  if (t !== lastT) { lastT = t; lastWall = now; return t; }
+  return t + Math.min(0.25, (now - lastWall) / 1000 * speed);
+}
+
+// ---------- layout ----------
+let W = 0, H = 0, K = 1, topH, kbY, kbH, padW, kbW, spans = {};
+function layout() {
+  const r = cv.getBoundingClientRect(), dpr = window.devicePixelRatio || 1;
+  cv.width = Math.round(r.width * dpr); cv.height = Math.round(r.height * dpr);
+  W = cv.width; H = cv.height; K = W / 1280;
+  topH = Math.round(14 * K); kbH = Math.round(118 * K); kbY = H - kbH;
+  padW = drums ? Math.round((r.width < 600 ? 110 : 150) * K) : 0; kbW = W - padW;
+  const whites = []; for (let p = LO; p <= HI; p++) if (!isBlack(p)) whites.push(p);
+  const ww = kbW / whites.length; spans = {}; let wi = 0;
+  for (let p = LO; p <= HI; p++) {
+    if (isBlack(p)) { const c = wi * ww; spans[p] = [c - ww*0.3, c + ww*0.3]; }
+    else { spans[p] = [wi * ww, (wi + 1) * ww]; wi++; }
+  }
+}
+new ResizeObserver(() => { layout(); draw(); }).observe(cv);
+
+function rr(x0, y0, x1, y1, r) {
+  r = Math.max(0, Math.min(r, (x1 - x0) / 2, (y1 - y0) / 2));
+  ctx.beginPath(); ctx.moveTo(x0 + r, y0); ctx.arcTo(x1, y0, x1, y1, r); ctx.arcTo(x1, y1, x0, y1, r);
+  ctx.arcTo(x0, y1, x0, y0, r); ctx.arcTo(x0, y0, x1, y0, r); ctx.closePath(); ctx.fill();
+}
+function firstVisible(notes, t0) {   // notes sorted by onset; long notes can start earlier, so back off 30 s
+  let lo = 0, hi = notes.length, target = t0 - 30;
+  while (lo < hi) { const m = (lo + hi) >> 1; if (notes[m][0] < target) lo = m + 1; else hi = m; }
+  return lo;
+}
+
+// ---------- drawing ----------
+function draw() {
+  if (!W) return;
+  const t = songTime();
+  const g = ctx.createLinearGradient(0, 0, 0, H); g.addColorStop(0, "#0d0f1c"); g.addColorStop(1, "#1b1030");
+  ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+  const pps = (kbY - topH) / LOOK, r = Math.max(2, 4 * K);
+  ctx.strokeStyle = "#342a48"; ctx.lineWidth = 1;
+  for (let p = LO; p <= HI; p++) if (p % 12 === 0) { const x = Math.round(spans[p][0]) + .5; ctx.beginPath(); ctx.moveTo(x, topH); ctx.lineTo(x, kbY); ctx.stroke(); }
+  const pressed = {};
+  const order = [...pitched].sort((a, b) => a.on - b.on);
+  for (const tr of order) {
+    const base = tr.on ? tr.rgb : mixRgb(tr.rgb, [13, 15, 28], 0.8);
+    for (let i = firstVisible(tr.notes, t); i < tr.notes.length; i++) {
+      const [a, b, p] = tr.notes[i];
+      if (a > t + LOOK) break;
+      if (b < t - 0.05 || !spans[p]) continue;
+      const [xa, xb] = spans[p];
+      const yb = Math.min(kbY, kbY - (a - t) * pps), yt = Math.max(topH, kbY - (b - t) * pps);
+      if (yb - yt < 2) continue;
+      const sounding = a <= t && b > t && tr.on;
+      const c = sounding ? mixRgb(base, [255,255,255], 0.35) : base;
+      ctx.fillStyle = css(mixRgb(c, [0,0,0], 0.45)); rr(xa + 1, yt, xb - 1, yb, r);
+      ctx.fillStyle = css(c); rr(xa + 2, yt + 1, xb - 2, yb - 1, r - 1);
+      if (sounding) pressed[p] = tr.rgb;
+    }
+  }
+  // glow where notes meet the keys
+  ctx.globalCompositeOperation = "lighter";
+  for (const p in pressed) {
+    const [xa, xb] = spans[p], cx = (xa + xb) / 2, rad = 26 * K;
+    const gg = ctx.createRadialGradient(cx, kbY, 0, cx, kbY, rad);
+    gg.addColorStop(0, `rgba(${pressed[p].join(",")},0.9)`); gg.addColorStop(1, "rgba(0,0,0,0)");
+    ctx.fillStyle = gg; ctx.fillRect(cx - rad, kbY - rad, rad * 2, rad * 2);
+  }
+  ctx.globalCompositeOperation = "source-over";
+  // keyboard
+  ctx.fillStyle = "#121014"; ctx.fillRect(0, kbY, kbW, kbH);
+  for (let p = LO; p <= HI; p++) if (!isBlack(p)) {
+    const [a, b] = spans[p]; ctx.fillStyle = pressed[p] ? css(mixRgb(pressed[p], [255,255,255], 0.25)) : "#ececf0";
+    ctx.fillRect(a + 1, kbY, b - a - 2, kbH);
+  }
+  for (let p = LO; p <= HI; p++) if (isBlack(p)) {
+    const [a, b] = spans[p]; ctx.fillStyle = pressed[p] ? css(pressed[p]) : "#1e1e22";
+    ctx.fillRect(a, kbY, b - a, kbH * 0.62);
+  }
+  ctx.fillStyle = "#9696a0"; ctx.font = `${Math.max(9, 11 * K)}px Arial`; ctx.textAlign = "center"; ctx.textBaseline = "alphabetic";
+  for (let p = LO; p <= HI; p++) if (p % 12 === 0) ctx.fillText(`C${Math.floor(p/12) - 1}`, (spans[p][0] + spans[p][1]) / 2, H - 6 * K);
+  ctx.fillStyle = "#c85a5a"; ctx.fillRect(0, kbY - Math.max(1, K), kbW, Math.max(2, 2 * K));
+  if (drums) drawDrums(t);
+  // progress line at the top
+  ctx.fillStyle = "#2a2540"; ctx.fillRect(0, 0, W, topH);
+  const dur = DATA.duration || audio.duration || 1;
+  if (loopA !== null && loopB !== null) { ctx.fillStyle = "#ffd16655"; ctx.fillRect(loopA / dur * W, 0, (loopB - loopA) / dur * W, topH); }
+  ctx.fillStyle = "#ffd166"; ctx.fillRect(0, topH - 4 * K, W * Math.min(1, t / dur), 4 * K);
+}
+
+function drawDrums(t) {
+  const x0 = kbW, n = PADS.length, gap = (kbY - topH) / n;
+  ctx.fillStyle = "#12101e"; ctx.fillRect(x0, topH, padW, H - topH);
+  ctx.fillStyle = "#342a48"; ctx.fillRect(x0, topH, 1, H - topH);
+  const last = {};
+  const ns = drums.notes;
+  for (let i = firstVisible(ns, t - 0.4); i < ns.length; i++) {
+    const [a, , p] = ns[i]; if (a > t) break; if (a < t - 0.4) continue;
+    const gi = DRUM_GROUP[p] ?? 5; last[gi] = Math.max(last[gi] ?? -9, a);
+  }
+  const R = Math.min(padW * 0.30, gap * 0.36);
+  ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.font = `${Math.max(10, 13 * K)}px Arial`;
+  for (let i = 0; i < n; i++) {
+    const cx = x0 + padW / 2, cy = topH + gap * (i + 0.5);
+    const hit = drums.on && last[i] !== undefined ? Math.max(0, 1 - (t - last[i]) / 0.35) : 0;
+    ctx.fillStyle = css(mixRgb([28, 24, 40], [232, 232, 240], 0.55 * hit));
+    ctx.beginPath(); ctx.arc(cx, cy, R, 0, 7); ctx.fill();
+    ctx.strokeStyle = css(mixRgb([80, 66, 102], [232, 232, 240], 0.25 + 0.75 * hit)); ctx.lineWidth = Math.max(1, 2 * K);
+    ctx.stroke();
+    if (hit > 0) { ctx.globalAlpha = hit; ctx.beginPath(); ctx.arc(cx, cy, R * (1 + 0.5 * (1 - hit)), 0, 7); ctx.lineWidth = 1; ctx.stroke(); ctx.globalAlpha = 1; }
+    ctx.fillStyle = hit > 0.45 ? "#1e1828" : (drums.on ? "#e1e1eb" : "#6e6a80");
+    ctx.fillText(PADS[i], cx, cy);
+  }
+}
+
+// ---------- synth (WebAudio) ----------
+let AC = null, master = null, voices = [], schedT = 0, noiseBuf = null;
+function ensureAudio() {
+  if (AC) return;
+  AC = new (window.AudioContext || window.webkitAudioContext)();
+  const comp = AC.createDynamicsCompressor(); comp.threshold.value = -18; comp.ratio.value = 6; comp.connect(AC.destination);
+  master = AC.createGain(); master.gain.value = 0.5; master.connect(comp);
+  noiseBuf = AC.createBuffer(1, AC.sampleRate, AC.sampleRate);
+  const d = noiseBuf.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+}
+const hz = p => 440 * Math.pow(2, (p - 69) / 12);
+function family(prog) {
+  if (prog < 8) return "piano"; if (prog < 16) return "bell"; if (prog < 24) return "organ"; if (prog < 32) return "pluck";
+  if (prog < 40) return "bass"; if (prog < 56) return "strings"; if (prog < 64) return "brass"; if (prog < 72) return "reed";
+  if (prog < 80) return "pipe"; return "synth";
+}
+function voice(tr, when, dur, p, vel) {
+  const f = family(tr.program || 0), v = (vel / 127) * 0.22;
+  const out = AC.createGain(); out.connect(master);
+  const lp = AC.createBiquadFilter(); lp.type = "lowpass"; lp.connect(out);
+  const osc = AC.createOscillator(); osc.connect(lp); osc.frequency.value = hz(p);
+  const g = out.gain; g.setValueAtTime(0, when);
+  let end = when + dur;
+  const types = {piano:"triangle", bell:"sine", organ:"square", pluck:"sawtooth", bass:"triangle", strings:"sawtooth",
+                 brass:"sawtooth", reed:"square", pipe:"sine", synth:"sawtooth"};
+  osc.type = types[f];
+  lp.frequency.value = {piano:4000, bell:8000, organ:2500, pluck:2200, bass:900, strings:2200, brass:1800, reed:1600, pipe:6000, synth:2600}[f];
+  if (f === "piano" || f === "pluck" || f === "bell") {          // struck: fast attack, decay
+    g.linearRampToValueAtTime(v * 1.2, when + 0.005);
+    g.setTargetAtTime(0, when + 0.005, f === "bell" ? 0.5 : 0.35);
+    end = Math.max(end, when + 0.25); g.setTargetAtTime(0, end, 0.08);
+  } else {                                                        // blown / bowed: soft attack, sustain
+    const att = f === "strings" ? 0.08 : 0.03;
+    g.linearRampToValueAtTime(v, when + att); g.setValueAtTime(v, Math.max(when + att, end)); g.setTargetAtTime(0, Math.max(when + att, end), 0.06);
+    if (f === "pipe" || f === "strings") { const lfo = AC.createOscillator(), lg = AC.createGain(); lfo.frequency.value = 5.2; lg.gain.value = hz(p) * 0.004; lfo.connect(lg); lg.connect(osc.frequency); lfo.start(when); lfo.stop(end + 0.4); voices.push(lfo); }
+  }
+  osc.start(when); osc.stop(end + 0.5); voices.push(osc);
+}
+function drumHit(when, p, vel) {
+  const gi = DRUM_GROUP[p] ?? 5, v = (vel / 127) * 0.5;
+  const out = AC.createGain(); out.connect(master); voices.push(out);
+  if (gi === 0) {                       // kick
+    const o = AC.createOscillator(); o.frequency.setValueAtTime(140, when); o.frequency.exponentialRampToValueAtTime(45, when + 0.12);
+    out.gain.setValueAtTime(v * 1.4, when); out.gain.setTargetAtTime(0, when + 0.01, 0.09); o.connect(out); o.start(when); o.stop(when + 0.5); voices.push(o);
+    return;
+  }
+  if (gi === 3) {                       // toms
+    const o = AC.createOscillator(); o.frequency.setValueAtTime(hz(p) * 2.2, when); o.frequency.exponentialRampToValueAtTime(hz(p) * 1.4, when + 0.2);
+    out.gain.setValueAtTime(v, when); out.gain.setTargetAtTime(0, when + 0.01, 0.12); o.connect(out); o.start(when); o.stop(when + 0.6); voices.push(o);
+    return;
+  }
+  const n = AC.createBufferSource(); n.buffer = noiseBuf;
+  const f = AC.createBiquadFilter(); n.connect(f); f.connect(out);
+  const cfg = {1:["bandpass", 1800, 0.07, 1.0], 2:["highpass", 7500, 0.035, 0.6], 4:["highpass", 5000, 0.45, 0.45], 5:["bandpass", 3000, 0.04, 0.5]}[gi];
+  f.type = cfg[0]; f.frequency.value = cfg[1];
+  out.gain.setValueAtTime(v * cfg[3], when); out.gain.setTargetAtTime(0, when + 0.003, cfg[2]);
+  n.start(when, Math.random() * 0.5); n.stop(when + cfg[2] * 6 + 0.05); voices.push(n);
+}
+function stopVoices() { for (const v of voices) { try { v.stop ? v.stop() : null; v.disconnect(); } catch (e) {} } voices = []; }
+function schedule() {
+  if (!AC || audio.paused || hear === "orig") return;
+  const t = songTime(), horizon = t + 0.25 * speed;
+  const from = Math.max(schedT, t);
+  for (const tr of tracks) {
+    if (!tr.on) continue;
+    const ns = tr.notes;
+    for (let i = firstVisible(ns, from); i < ns.length; i++) {
+      const [a, b, p, vel] = ns[i];
+      if (a >= horizon) break;
+      if (a < from) continue;
+      const when = AC.currentTime + (a - t) / speed;
+      if (tr.is_drum) drumHit(when, p, vel); else voice(tr, when, (b - a) / speed, p, vel);
+    }
+  }
+  schedT = horizon;
+  if (voices.length > 600) voices = voices.slice(-300);
+}
+function resync() { stopVoices(); schedT = songTime(); }
+
+// ---------- controls ----------
+function setHear(h) {
+  hear = h; document.querySelectorAll("[data-hear]").forEach(b => b.classList.toggle("on", b.dataset.hear === h));
+  audio.volume = h === "synth" ? 0 : h === "mix" ? 0.35 : 1;
+  if (h !== "orig") ensureAudio();
+  resync();
+}
+function setSpeed(s) {
+  speed = s; audio.playbackRate = s; audio.preservesPitch = true;
+  document.querySelectorAll("[data-speed]").forEach(b => b.classList.toggle("on", +b.dataset.speed === s));
+  resync();
+}
+function toggle(tr) { tr.on = !tr.on; renderChips(); resync(); }
+function solo(tr) {
+  const only = tracks.every(x => x.on === (x === tr));
+  tracks.forEach(x => x.on = only ? true : x === tr);
+  if (!only && hear === "orig") setHear("synth");
+  if (only && hear === "synth") setHear("orig");
+  renderChips(); resync();
+}
+function renderChips() {
+  const box = $("#chips"); box.innerHTML = "";
+  tracks.forEach((tr, i) => {
+    const c = document.createElement("div"); c.className = "chip" + (tr.on ? "" : " off");
+    c.innerHTML = `<span class="dot" style="background:${tr.color}"></span><span class="name"></span><span class="n">${tr.notes.length}</span><button class="solo">Solo</button>`;
+    c.querySelector(".name").textContent = `${i < 9 ? (i + 1) + " · " : ""}${tr.name}`;
+    c.querySelector(".name").onclick = () => toggle(tr);
+    c.querySelector(".dot").onclick = () => toggle(tr);
+    const sb = c.querySelector(".solo"); sb.onclick = () => solo(tr);
+    if (tracks.every(x => x.on === (x === tr))) sb.classList.add("on");
+    box.append(c);
+  });
+}
+async function playPause() {
+  if (audio.paused) { if (AC) await AC.resume(); await audio.play(); } else audio.pause();
+}
+audio.addEventListener("play", () => { $("#play").textContent = "Pause"; $("#bigplay").classList.add("hidden"); resync(); });
+audio.addEventListener("pause", () => { $("#play").textContent = "Play"; stopVoices(); draw(); });
+audio.addEventListener("seeked", () => { resync(); draw(); });
+audio.addEventListener("ended", () => { $("#bigplay").classList.remove("hidden"); });
+$("#play").onclick = playPause;
+cv.onclick = playPause;
+document.querySelectorAll("[data-hear]").forEach(b => b.onclick = () => setHear(b.dataset.hear));
+document.querySelectorAll("[data-speed]").forEach(b => b.onclick = () => setSpeed(+b.dataset.speed));
+const seekTo = t => { audio.currentTime = Math.max(0, Math.min(t, (DATA.duration || audio.duration) - 0.05)); };
+$("#seek").onclick = e => { const r = e.currentTarget.getBoundingClientRect(); seekTo((e.clientX - r.left) / r.width * (DATA.duration || audio.duration)); };
+$("#setA").onclick = () => { loopA = songTime(); if (loopB !== null && loopB <= loopA) loopB = null; loopUI(); };
+$("#setB").onclick = () => { const t = songTime(); if (loopA === null) loopA = Math.max(0, t - 8); if (t > loopA) loopB = t; loopUI(); };
+$("#clearLoop").onclick = () => { loopA = loopB = null; loopUI(); };
+function loopUI() {
+  const band = $("#loopband"), dur = DATA.duration || audio.duration;
+  $("#setA").classList.toggle("on", loopA !== null); $("#setB").classList.toggle("on", loopB !== null);
+  if (loopA !== null && loopB !== null) { band.classList.remove("hidden"); band.style.left = (loopA / dur * 100) + "%"; band.style.width = ((loopB - loopA) / dur * 100) + "%"; }
+  else band.classList.add("hidden");
+}
+document.addEventListener("keydown", e => {
+  if (e.target.tagName === "INPUT") return;
+  if (e.code === "Space") { e.preventDefault(); playPause(); }
+  else if (e.key === "ArrowRight") seekTo(songTime() + 5);
+  else if (e.key === "ArrowLeft") seekTo(songTime() - 5);
+  else if (e.key === "[") setSpeed(speed <= 0.5 ? 0.5 : speed <= 0.75 ? 0.5 : 0.75);
+  else if (e.key === "]") setSpeed(speed >= 0.75 ? 1 : 0.75);
+  else if (/^[1-9]$/.test(e.key) && tracks[+e.key - 1]) toggle(tracks[+e.key - 1]);
+});
+
+function tick() {
+  const t = songTime(), dur = DATA.duration || audio.duration || 1;
+  if (loopA !== null && loopB !== null && !audio.paused && t >= loopB) seekTo(loopA);
+  $("#fill").style.width = (Math.min(1, t / dur) * 100) + "%";
+  $("#time").textContent = `${fmt(t)} / ${fmt(dur)}`;
+  schedule();
+  draw();
+  requestAnimationFrame(tick);
+}
+renderChips(); layout(); requestAnimationFrame(tick);
+</script>
+</body>
+</html>
